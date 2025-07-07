@@ -115,8 +115,8 @@ body[data-theme='glass'] .menu-item-focus {
 
 .notion-editor-content ul,
 .notion-editor-content ol {
-  margin: 0.5em 0 0.5em 1.5em;
-  padding: 0 0 0 1.5em;
+  margin: 0.5em 0 0.5em 1em;
+  padding: 0 0 0 0.8em;
   list-style-position: outside;
 }
 
@@ -155,15 +155,15 @@ body[data-theme='glass'] .menu-item-focus {
 }
 
 .notion-editor-content pre {
-  background: var(--card-bg, #f6f6f6);
-  color: var(--foreground, #222);
+  background: var(--card-bg, #18181b);
+  color: var(--foreground, #f3f4f6);
   border-radius: 8px;
   padding: 1em;
   overflow-x: auto;
-  font-size: 0.95em;
+  font-size: 0.97em;
   margin: 1em 0;
   backdrop-filter: var(--glass-blur, none);
-  border: 1px solid var(--border, #ececec);
+  border: 1px solid var(--border, #232326);
   transition: background 0.2s, color 0.2s;
 }
 
@@ -197,4 +197,68 @@ body[data-theme='glass'] .menu-item-focus {
   color: var(--foreground, #fff) !important;
   border: 1.5px solid var(--accent) !important;
   outline: none !important;
+}
+
+/* Simple highlight.js/lowlight default token styles */
+.notion-editor-content .hljs-comment,
+.notion-editor-content .hljs-quote {
+  color: #a1a1aa;
+  font-style: italic;
+}
+.notion-editor-content .hljs-keyword,
+.notion-editor-content .hljs-selector-tag,
+.notion-editor-content .hljs-literal,
+.notion-editor-content .hljs-section,
+.notion-editor-content .hljs-link {
+  color: #7b5dff;
+}
+.notion-editor-content .hljs-string,
+.notion-editor-content .hljs-title,
+.notion-editor-content .hljs-name,
+.notion-editor-content .hljs-type,
+.notion-editor-content .hljs-attribute {
+  color: #facc15;
+}
+.notion-editor-content .hljs-number,
+.notion-editor-content .hljs-symbol,
+.notion-editor-content .hljs-bullet {
+  color: #38bdf8;
+}
+.notion-editor-content .hljs-built_in,
+.notion-editor-content .hljs-builtin-name {
+  color: #f472b6;
+}
+.notion-editor-content .hljs-meta {
+  color: #a3e635;
+}
+.notion-editor-content .hljs-addition {
+  background-color: var(--card-bg, #022c22);
+  color: #a7f3d0;
+}
+.notion-editor-content .hljs-deletion {
+  background-color: var(--card-bg, #7f1d1d);
+  color: #fee2e2;
+}
+
+.notion-editor-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  background: var(--card-bg, #fff);
+}
+.notion-editor-content th,
+.notion-editor-content td {
+  border: 1px solid var(--border, #ececec);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.notion-editor-content th {
+  background: var(--input-bg, #f6f6f6);
+  font-weight: 600;
+}
+.notion-editor-content tr {
+  transition: background 0.2s;
+}
+.notion-editor-content tr:hover {
+  background: var(--card-bg, #f3f4f6);
 }

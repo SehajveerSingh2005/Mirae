@@ -4,13 +4,20 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import CharacterCount from "@tiptap/extension-character-count";
 import Underline from "@tiptap/extension-underline";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { MoreVertical, Download, Upload, Trash2, Bold, Italic, Underline as UnderlineIcon, Strikethrough, Undo2, Redo2, MoreHorizontal, Minus, Plus } from "lucide-react";
+import { Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, Image as ImageIcon, Table as TableIcon, ExternalLink } from "lucide-react";
 import Highlight from "@tiptap/extension-highlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { createLowlight, all } from "lowlight";
 import QuickCommandMenu from './QuickCommandMenu';
+import Image from '@tiptap/extension-image';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
+import ImageDialog from './ImageDialog';
 
 function getProseFontSizeClass(fontSize?: number) {
   if (!fontSize) return 'prose-base';
@@ -36,6 +43,13 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
   const [syncStatus, setSyncStatus] = useState("● Synced");
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 200, left: 400 });
+  const [slashFilter, setSlashFilter] = useState('');
+  const lastSlashPosRef = useRef<number | null>(null);
+  type CommandOption = { label: string; type: string; icon?: React.ReactNode; description?: string };
+  const [slashMenuOptions, setSlashMenuOptions] = useState<CommandOption[]>([]);
+  const [slashMenuFocus, setSlashMenuFocus] = useState(0);
+  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [pendingImageInsert, setPendingImageInsert] = useState<null | ((src: string) => void)>(null);
 
   const editor = useEditor({
     extensions: [
@@ -46,12 +60,37 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
       Underline,
       Highlight,
       CodeBlockLowlight.configure({ lowlight: lowlight }),
+      Image,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content: page?.content || '',
     editorProps: {
       attributes: {
         class:
           "prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl w-full h-full",
+      },
+      handleKeyDown: (view, event) => {
+        // If slash menu is open, handle Enter/Arrow keys
+        if (showMenu && slashMenuOptions.length > 0) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.stopPropagation();
+            handleMenuSelect(slashMenuOptions[slashMenuFocus].type);
+            return true;
+          } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setSlashMenuFocus(prev => (prev + 1) % slashMenuOptions.length);
+            return true;
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setSlashMenuFocus(prev => (prev - 1 + slashMenuOptions.length) % slashMenuOptions.length);
+            return true;
+          }
+        }
+        return false;
       },
     },
     immediatelyRender: false,
@@ -93,16 +132,145 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
     if (onTitleChange) onTitleChange(e.target.value);
   };
 
+  // Helper: get text before caret up to the start of the block
+  function getTextBeforeCaret() {
+    if (!editor) return '';
+    const { state } = editor;
+    const { from } = state.selection;
+    // Get text from start of block to caret
+    const $from = state.selection.$from;
+    const blockStart = $from.start();
+    return state.doc.textBetween(blockStart, from, '\0', '\0');
+  }
+
+  // Helper: get caret position in viewport
+  function getCaretCoords() {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0).cloneRange();
+      const span = document.createElement('span');
+      span.textContent = '\u200b';
+      span.style.display = 'inline-block';
+      span.style.width = '1px';
+      range.insertNode(span);
+      const rect = span.getBoundingClientRect();
+      const menuHeight = 240; // match your menu's maxHeight
+      const spaceBelow = window.innerHeight - rect.bottom;
+      let top;
+      if (spaceBelow < menuHeight) {
+        top = rect.top + window.scrollY - menuHeight + 2;
+      } else {
+        top = rect.bottom + window.scrollY + 2;
+      }
+      const coords = {
+        top,
+        left: rect.left + window.scrollX - 200 // your existing left logic
+      };
+      span.parentNode?.removeChild(span);
+      return coords;
+    }
+    return { top: 200, left: 400 };
+  }
+
+  // Listen for input to trigger/close/filter the slash menu
+  useEffect(() => {
+    if (!editor) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!editor) return;
+      // Only handle if editor is focused
+      if (document.activeElement !== editor.options.element) return;
+      if (showMenu && e.key === 'Escape') {
+        setShowMenu(false);
+        setSlashFilter('');
+        lastSlashPosRef.current = null;
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showMenu, editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handleInput = () => {
+      const text = getTextBeforeCaret();
+      // Find last '/' in the text before caret
+      const lastSlash = text.lastIndexOf('/');
+      if (lastSlash !== -1) {
+        // Show menu and filter
+        setShowMenu(true);
+        setSlashFilter(text.slice(lastSlash + 1));
+        lastSlashPosRef.current = lastSlash;
+        // Update menu position
+        requestAnimationFrame(() => {
+          const coords = getCaretCoords();
+          setMenuPosition(coords);
+        });
+      } else {
+        setShowMenu(false);
+        setSlashFilter('');
+        lastSlashPosRef.current = null;
+      }
+    };
+    editor.on('selectionUpdate', handleInput);
+    editor.on('transaction', handleInput);
+    return () => {
+      editor.off('selectionUpdate', handleInput);
+      editor.off('transaction', handleInput);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    const COMMAND_OPTIONS = [
+      { label: 'Heading 1', type: 'heading1', icon: <Heading1 className="w-4 h-4 text-accent" /> },
+      { label: 'Heading 2', type: 'heading2', icon: <Heading2 className="w-4 h-4 text-accent" /> },
+      { label: 'Heading 3', type: 'heading3', icon: <Heading3 className="w-4 h-4 text-accent" /> },
+      { label: 'Bullet List', type: 'bulletList', icon: <List className="w-4 h-4 text-accent" /> },
+      { label: 'Ordered List', type: 'orderedList', icon: <ListOrdered className="w-4 h-4 text-accent" /> },
+      { label: 'Blockquote', type: 'blockquote', icon: <Quote className="w-4 h-4 text-accent" /> },
+      { label: 'Code Block', type: 'codeBlock', icon: <Code className="w-4 h-4 text-accent" /> },
+    ];
+    const EXTENDED_COMMAND_OPTIONS: CommandOption[] = [
+      ...COMMAND_OPTIONS,
+      {
+        label: 'Image',
+        type: 'image',
+        icon: <ImageIcon className="w-4 h-4 text-accent" />,
+        description: 'Insert an image',
+      },
+      {
+        label: 'Table',
+        type: 'table',
+        icon: <TableIcon className="w-4 h-4 text-accent" />,
+        description: 'Insert a table',
+      },
+      {
+        label: 'Embed',
+        type: 'embed',
+        icon: <ExternalLink className="w-4 h-4 text-accent" />,
+        description: 'Embed external content',
+      },
+    ];
+    const filtered = EXTENDED_COMMAND_OPTIONS.filter(option =>
+      option.label.toLowerCase().includes(slashFilter.toLowerCase()) ||
+      option.type.toLowerCase().includes(slashFilter.toLowerCase())
+    );
+    setSlashMenuOptions(filtered);
+    setSlashMenuFocus(0);
+  }, [slashFilter]);
+
   const handleMenuSelect = (type: string) => {
     setShowMenu(false);
+    setSlashFilter('');
     if (!editor) return;
-
-    // Remove the '/' before the cursor only if a command is selected
+    // Remove the '/' and filter text before the caret
     const state = editor.state;
     const { from } = state.selection;
-    const textBefore = editor.state.doc.textBetween(Math.max(0, from - 1), from, '\0', '\0');
-    if (textBefore === '/') {
-      editor.commands.deleteRange({ from: from - 1, to: from });
+    const text = getTextBeforeCaret();
+    const lastSlash = text.lastIndexOf('/');
+    if (lastSlash !== -1) {
+      const blockStart = state.selection.$from.start();
+      editor.commands.deleteRange({ from: blockStart + lastSlash, to: from });
     }
 
     switch (type) {
@@ -127,13 +295,33 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
       case 'codeBlock':
         editor.chain().focus().toggleCodeBlock().run();
         break;
+      case 'image': {
+        setShowImageDialog(true);
+        setPendingImageInsert(() => (src: string) => {
+          editor.chain().focus().setImage({ src }).run();
+        });
+        break;
+      }
+      case 'table': {
+        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+        break;
+      }
+      case 'embed': {
+        const url = window.prompt('Enter embed URL (YouTube, etc.):');
+        if (url) {
+          // Insert a simple iframe for now
+          const html = `<iframe src="${url}" frameborder="0" allowfullscreen style="width:100%;min-height:300px;"></iframe>`;
+          editor.chain().focus().insertContent(html).run();
+        }
+        break;
+      }
       default:
         break;
     }
     setTimeout(() => { editor.chain().focus().run(); }, 0);
   };
 
-  // Handle Enter and Shift+Enter for blockquote and code block
+  // Only keep blockquote/code block logic in handleEditorKeyDown
   const handleEditorKeyDown = (e: React.KeyboardEvent) => {
     if (!editor) return;
     const { state } = editor;
@@ -153,6 +341,15 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
         editor.chain().focus().setHardBreak().run();
       }
     }
+  };
+
+  // ImageDialog integration
+  const handleImageInsert = (src: string) => {
+    if (pendingImageInsert) {
+      pendingImageInsert(src);
+    }
+    setShowImageDialog(false);
+    setPendingImageInsert(null);
   };
 
   return (
@@ -216,37 +413,23 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
             editor={editor}
             className="flex-1 overflow-y-auto w-full h-full"
             style={{ color: 'var(--foreground)' }}
-            onKeyDown={e => {
-              if (e.key === '/' && editor && !showMenu) {
-                e.preventDefault();
-                // Insert a temporary span at the caret to get its position
-                const selection = window.getSelection();
-                if (selection && selection.rangeCount > 0) {
-                  const range = selection.getRangeAt(0).cloneRange();
-                  const span = document.createElement('span');
-                  span.textContent = '\u200b'; // zero-width space
-                  span.style.display = 'inline-block';
-                  span.style.width = '1px';
-                  range.insertNode(span);
-                  const rect = span.getBoundingClientRect();
-                  setMenuPosition({
-                    top: rect.bottom + window.scrollY + 4,
-                    left: rect.left + window.scrollX + 2
-                  });
-                  span.parentNode?.removeChild(span);
-                }
-                setShowMenu(true);
-              } else {
-                handleEditorKeyDown(e);
-              }
-            }}
+            onKeyDown={handleEditorKeyDown}
           />
         </div>
         <QuickCommandMenu
           visible={showMenu}
           position={menuPosition}
           onSelect={handleMenuSelect}
-          onClose={() => setShowMenu(false)}
+          onClose={() => { setShowMenu(false); setSlashFilter(''); }}
+          filter={slashFilter}
+          options={slashMenuOptions}
+          focusedIndex={slashMenuFocus}
+          onHoverIndexChange={setSlashMenuFocus}
+        />
+        <ImageDialog
+          open={showImageDialog}
+          onClose={() => { setShowImageDialog(false); setPendingImageInsert(null); }}
+          onInsert={handleImageInsert}
         />
         {/* Floating Toolbar (bottom center, show on hover/focus) */}
         {editor && (
