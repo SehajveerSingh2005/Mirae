@@ -26,6 +26,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('mirae-theme') || 'light';
+                  document.body.setAttribute('data-theme', theme);
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${inter.variable} ${spaceGrotesk.variable} antialiased`}
       >

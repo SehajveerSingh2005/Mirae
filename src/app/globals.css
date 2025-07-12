@@ -50,7 +50,7 @@ body[data-theme='glass'] {
   --foreground: #f3f4f6;
   --accent: #7b5dff;
   --muted: #b0b0b0;
-  --border: #232326;
+  --border: rgba(255,255,255,0.18);
   --card-bg: rgba(255,255,255,0.08);
   --button-bg: #7b5dff;
   --button-fg: #fff;

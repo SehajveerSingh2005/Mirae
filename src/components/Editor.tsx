@@ -6,7 +6,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Underline from "@tiptap/extension-underline";
 import { useState, useEffect, useRef } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { MoreVertical, Download, Upload, Trash2, Bold, Italic, Underline as UnderlineIcon, Strikethrough, Undo2, Redo2, MoreHorizontal, Minus, Plus } from "lucide-react";
+import { MoreVertical, Download, Upload, Trash2, Bold, Italic, Underline as UnderlineIcon, Strikethrough, Undo2, Redo2, MoreHorizontal, Minus, Plus, Star } from "lucide-react";
 import { Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, Image as ImageIcon, Table as TableIcon, ExternalLink } from "lucide-react";
 import Highlight from "@tiptap/extension-highlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -50,6 +50,8 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
   const [slashMenuFocus, setSlashMenuFocus] = useState(0);
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [pendingImageInsert, setPendingImageInsert] = useState<null | ((src: string) => void)>(null);
+  const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
+  const [toolbarPosition, setToolbarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   const editor = useEditor({
     extensions: [
@@ -95,6 +97,8 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
     },
     immediatelyRender: false,
   });
+
+  const editorContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTitle(page?.title || "");
@@ -164,7 +168,7 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
       }
       const coords = {
         top,
-        left: rect.left + window.scrollX - 200 // your existing left logic
+        left: rect.left + window.scrollX - 200
       };
       span.parentNode?.removeChild(span);
       return coords;
@@ -222,6 +226,10 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
 
   useEffect(() => {
     const COMMAND_OPTIONS = [
+      { label: 'Bold', type: 'bold', icon: <Bold className="w-4 h-4 text-accent" />, description: 'Toggle bold text' },
+      { label: 'Italic', type: 'italic', icon: <Italic className="w-4 h-4 text-accent" />, description: 'Toggle italic text' },
+      { label: 'Underline', type: 'underline', icon: <UnderlineIcon className="w-4 h-4 text-accent" />, description: 'Toggle underline' },
+      { label: 'Strikethrough', type: 'strike', icon: <Strikethrough className="w-4 h-4 text-accent" />, description: 'Toggle strikethrough' },
       { label: 'Heading 1', type: 'heading1', icon: <Heading1 className="w-4 h-4 text-accent" /> },
       { label: 'Heading 2', type: 'heading2', icon: <Heading2 className="w-4 h-4 text-accent" /> },
       { label: 'Heading 3', type: 'heading3', icon: <Heading3 className="w-4 h-4 text-accent" /> },
@@ -274,6 +282,18 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
     }
 
     switch (type) {
+      case 'bold':
+        editor.chain().focus().toggleBold().run();
+        break;
+      case 'italic':
+        editor.chain().focus().toggleItalic().run();
+        break;
+      case 'underline':
+        editor.chain().focus().toggleUnderline().run();
+        break;
+      case 'strike':
+        editor.chain().focus().toggleStrike().run();
+        break;
       case 'heading1':
         editor.chain().focus().setNode('heading', { level: 1 }).run();
         break;
@@ -352,6 +372,60 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
     setPendingImageInsert(null);
   };
 
+  // Floating toolbar logic
+  useEffect(() => {
+    if (!editor) return;
+    const updateToolbar = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+        setShowFloatingToolbar(false);
+        return;
+      }
+      // Check if selection is inside the editor content
+      const anchorNode = selection.anchorNode;
+      const editorContent = editorContentRef.current;
+      if (!editorContent || !anchorNode) {
+        setShowFloatingToolbar(false);
+        return;
+      }
+      // Traverse up from anchorNode to see if it's inside editorContent
+      let node: Node | null = anchorNode;
+      let inside = false;
+      while (node) {
+        if (node === editorContent) {
+          inside = true;
+          break;
+        }
+        node = node.parentNode;
+      }
+      if (!inside) {
+        setShowFloatingToolbar(false);
+        return;
+      }
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      if (!rect || (rect.top === 0 && rect.left === 0)) {
+        setShowFloatingToolbar(false);
+        return;
+      }
+      // Position above and to the left of selection, Notion-style
+      const toolbarWidth = 180;
+      const top = rect.top + window.scrollY + 32; // 8px gap, 36px toolbar height
+      const left = rect.left + window.scrollX - 200; // 8px to the left of selection
+      setToolbarPosition({ top: Math.max(top, 8), left: Math.max(left, 8) });
+      setShowFloatingToolbar(true);
+    };
+    editor.on('selectionUpdate', updateToolbar);
+    editor.on('focus', updateToolbar);
+    editor.on('blur', () => setShowFloatingToolbar(false));
+    window.addEventListener('scroll', updateToolbar, true);
+    return () => {
+      editor.off('selectionUpdate', updateToolbar);
+      editor.off('focus', updateToolbar);
+      editor.off('blur', () => setShowFloatingToolbar(false));
+      window.removeEventListener('scroll', updateToolbar, true);
+    };
+  }, [editor]);
+
   return (
     <div className="h-full flex flex-col transition-all glass-editor group/editor-area"
       style={{ background: 'var(--editor-bg)', color: 'var(--foreground)', backdropFilter: 'var(--glass-blur)' }}>
@@ -410,6 +484,7 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
       <div className="flex-1 flex flex-col px-8 pb-8 pt-4 relative" >
         <div className="notion-editor-content flex-1 overflow-y-auto w-full h-full">
           <EditorContent
+            ref={editorContentRef}
             editor={editor}
             className="flex-1 overflow-y-auto w-full h-full"
             style={{ color: 'var(--foreground)' }}
@@ -431,23 +506,41 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
           onClose={() => { setShowImageDialog(false); setPendingImageInsert(null); }}
           onInsert={handleImageInsert}
         />
-        {/* Floating Toolbar (bottom center, show on hover/focus) */}
-        {editor && (
+
+        {/* Floating Formatting Toolbar */}
+        {editor && showFloatingToolbar && (
           <div
-            className="fixed left-1/2 bottom-8 -translate-x-1/2 z-30 opacity-0 group-hover/editor-area:opacity-100 group-focus-within/editor-area:opacity-100 transition-opacity pointer-events-auto"
+            className="fixed z-40 flex gap-1 items-center px-2 py-1 rounded-xl shadow-xl border backdrop-blur-xl bg-[var(--dropdown-bg)] border-[var(--border)] text-[var(--foreground)] cursor-pointer"
+            style={{
+              top: toolbarPosition.top,
+              left: toolbarPosition.left,
+              boxShadow: '0 4px 24px 0 rgba(0,0,0,0.14)',
+              backdropFilter: 'var(--glass-blur)',
+              minWidth: 180,
+              minHeight: 36,
+              transition: 'opacity 0.15s',
+            }}
+            onMouseDown={e => e.preventDefault()} // Prevent focus loss
           >
-            <div className="flex gap-1 items-center px-4 py-2 rounded-2xl shadow-2xl border backdrop-blur-xl"
-              style={{ background: 'var(--dropdown-bg)', border: '1.5px solid var(--border)', color: 'var(--foreground)', boxShadow: '0 8px 40px 0 rgba(0,0,0,0.18)', backdropFilter: 'var(--glass-blur)' }}>
-              <button onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (Ctrl+B)" className={`p-2 rounded transition ${editor.isActive('bold') ? 'bg-[var(--accent)] text-white' : ''}`}><Bold className="w-4 h-4" /></button>
-              <button onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic (Ctrl+I)" className={`p-2 rounded transition ${editor.isActive('italic') ? 'bg-[var(--accent)] text-white' : ''}`}><Italic className="w-4 h-4" /></button>
-              <button onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline (Ctrl+U)" className={`p-2 rounded transition ${editor.isActive('underline') ? 'bg-[var(--accent)] text-white' : ''}`}><UnderlineIcon className="w-4 h-4" /></button>
-              <button onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough (Ctrl+Shift+S)" className={`p-2 rounded transition ${editor.isActive('strike') ? 'bg-[var(--accent)] text-white' : ''}`}><Strikethrough className="w-4 h-4" /></button>
-              {/* Remove font size controls */}
-              <button onClick={() => editor.chain().focus().undo().run()} title="Undo (Ctrl+Z)" className="p-2 rounded transition"><Undo2 className="w-4 h-4" /></button>
-              <button onClick={() => editor.chain().focus().redo().run()} title="Redo (Ctrl+Shift+Z)" className="p-2 rounded transition"><Redo2 className="w-4 h-4" /></button>
-              {/* More button for advanced tools */}
-              <button title="More" className="p-2 rounded transition"><MoreHorizontal className="w-4 h-4" /></button>
-            </div>
+            <button onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (Ctrl+B)" className={`p-2 rounded transition ${editor.isActive('bold') ? 'bg-[var(--accent)] text-white' : ''}`}><Bold className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic (Ctrl+I)" className={`p-2 rounded transition ${editor.isActive('italic') ? 'bg-[var(--accent)] text-white' : ''}`}><Italic className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline (Ctrl+U)" className={`p-2 rounded transition ${editor.isActive('underline') ? 'bg-[var(--accent)] text-white' : ''}`}><UnderlineIcon className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough (Ctrl+Shift+S)" className={`p-2 rounded transition ${editor.isActive('strike') ? 'bg-[var(--accent)] text-white' : ''}`}><Strikethrough className="w-4 h-4" /></button>
+            {/* AI Button Placeholder */}
+            <button title="AI" className="p-2 rounded transition"><Star className="w-4 h-4" /></button>
+          </div>
+        )}
+        {/* Persistent Minimal Toolbar (bottom center) */}
+        {editor && (
+          <div className="fixed left-1/2 bottom-6 -translate-x-1/2 z-30 flex gap-1 items-center px-3 py-1.5 rounded-xl shadow-xl border backdrop-blur-xl bg-[var(--dropdown-bg)] border-[var(--border)] text-[var(--foreground)] cursor-pointer" style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.14)', backdropFilter: 'var(--glass-blur)' }}>
+            <button onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (Ctrl+B)" className={`p-2 rounded transition ${editor.isActive('bold') ? 'bg-[var(--accent)] text-white' : ''}`}><Bold className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic (Ctrl+I)" className={`p-2 rounded transition ${editor.isActive('italic') ? 'bg-[var(--accent)] text-white' : ''}`}><Italic className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline (Ctrl+U)" className={`p-2 rounded transition ${editor.isActive('underline') ? 'bg-[var(--accent)] text-white' : ''}`}><UnderlineIcon className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough (Ctrl+Shift+S)" className={`p-2 rounded transition ${editor.isActive('strike') ? 'bg-[var(--accent)] text-white' : ''}`}><Strikethrough className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet List" className={`p-2 rounded transition ${editor.isActive('bulletList') ? 'bg-[var(--accent)] text-white' : ''}`}><List className="w-4 h-4" /></button>
+            <button onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Ordered List" className={`p-2 rounded transition ${editor.isActive('orderedList') ? 'bg-[var(--accent)] text-white' : ''}`}><ListOrdered className="w-4 h-4" /></button>
+            {/* AI Button Placeholder */}
+            <button title="AI" className="p-2 rounded transition"><Star className="w-4 h-4" /></button>
           </div>
         )}
       </div>

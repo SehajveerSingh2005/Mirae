@@ -7,6 +7,8 @@ import Sidebar from "@/components/Sidebar";
 import { v4 as uuidv4 } from 'uuid';
 import Home from '@/components/Home';
 import { Moon, Sun, GlassWater } from "lucide-react";
+import { supabase } from "@/utils/supabaseClient";
+import AuthPanel from "@/components/AuthPanel";
 
 const Tiptap = dynamic(() => import("@/components/Editor"), { ssr: false });
 
@@ -65,6 +67,9 @@ export default function EditorPageClient() {
   const [mounted, setMounted] = useState(false);
   const [favourites, setFavourites] = useState<string[]>(() => loadFavourites());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Keep localStorage in sync
   useEffect(() => { savePages(pages); }, [pages]);
@@ -82,6 +87,19 @@ export default function EditorPageClient() {
     document.body.setAttribute('data-theme', theme);
     localStorage.setItem('mirae-theme', theme);
   }, [theme, mounted]);
+
+  useEffect(() => {
+    // Get current user session instantly from localStorage
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      setAuthChecked(true);
+    });
+    // Listen for auth state changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => { listener?.subscription.unsubscribe(); };
+  }, []);
 
   const handleNewPage = () => {
     const newPage = { id: uuidv4(), title: '', content: '' };
@@ -166,10 +184,19 @@ export default function EditorPageClient() {
 
   const currentPage = pages.find(p => p.id === currentPageId);
 
-  if (!mounted) return null;
+  if (!mounted || !authChecked) return null;
 
   return (
     <div className="flex w-screen h-screen min-w-0 min-h-0 overflow-hidden">
+      {/* Auth Modal */}
+      {showAuth && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'var(--modal-overlay, rgba(0,0,0,0.18))', backdropFilter: 'var(--glass-blur)' }}>
+          <div className="bg-[var(--dropdown-bg)] rounded-2xl shadow-2xl p-0 max-w-md w-full relative border border-[var(--border)]" style={{ boxShadow: '0 8px 40px 0 rgba(0,0,0,0.18)' }}>
+            <button className="absolute top-2 right-2 p-2 text-xl cursor-pointer z-10 rounded-full hover:bg-[var(--button-hover-bg)] transition" style={{ color: 'var(--muted)' }} onClick={() => setShowAuth(false)}>&times;</button>
+            <AuthPanel />
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <Sidebar
         pages={pages}
@@ -190,12 +217,20 @@ export default function EditorPageClient() {
         onToggleFavourite={handleToggleFavourite}
         isSidebarCollapsed={isSidebarCollapsed}
         setIsSidebarCollapsed={setIsSidebarCollapsed}
+        user={user}
+        onShowAuth={() => setShowAuth(true)}
       />
       {/* Main Content Area */}
       <main className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden relative transition-all duration-200 ${isSidebarCollapsed ? 'ml-0' : ''}`}>
         <div className="flex-1 overflow-y-auto relative">
           {isHomeSelected ? (
-            <Home onNewPage={handleNewPage} />
+            <Home 
+              onNewPage={handleNewPage}
+              pages={pages}
+              onOpenPage={handleSelectPage}
+              user={user}
+              onShowAuth={() => setShowAuth(true)}
+            />
           ) : (
             <div className="h-full flex flex-col relative group/editor-area">
               <Tiptap

@@ -36,11 +36,13 @@ interface SidebarProps {
   onToggleFavourite: (pageId: string) => void;
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: (collapsed: boolean) => void;
+  user: any;
+  onShowAuth: () => void;
 }
 
 const themeOrder = ['light', 'dark', 'glass'] as const;
 
-const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, favourites, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed }: SidebarProps) => {
+const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, favourites, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed, user, onShowAuth }: SidebarProps) => {
   const nextTheme = () => {
     const idx = themeOrder.indexOf(theme);
     setTheme(themeOrder[(idx + 1) % themeOrder.length]);
@@ -91,7 +93,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
           </div>
           <div className="flex w-full justify-center items-center mb-6">
             <button
-              className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition"
+              className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
               style={{ color: 'var(--muted)' }}
               onClick={() => setIsSidebarCollapsed(false)}
               title="Expand sidebar"
@@ -105,7 +107,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               title="Home"
               onClick={onSelectHome}
               style={{ color: isHomeSelected ? 'var(--accent)' : 'var(--foreground)' }}
-              className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition"
+              className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
             >
               <HomeIcon className="w-5 h-5" />
             </button>
@@ -113,7 +115,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               title="Favourites"
               disabled={favourites.length === 0}
               style={{ color: (!isHomeSelected && favourites.includes(currentPageId || '')) ? 'var(--accent)' : 'var(--foreground)' }}
-              className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition"
+              className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
             >
               <Star className="w-5 h-5" />
             </button>
@@ -124,7 +126,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                 title={page.title || 'Untitled Page'}
                 onClick={() => onSelectPage(page.id)}
                 style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
-                className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition"
+                className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
                 onContextMenu={e => {
                   e.preventDefault();
                   setPendingDeletePageId(page.id);
@@ -135,13 +137,15 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               </button>
             ))}
             {/* New Page button */}
-            <button title="New Page" onClick={onNewPage} style={{ color: 'var(--foreground)' }} className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition mt-2">
-              <Plus className="w-5 h-5" />
-            </button>
+            {user && (
+              <button title="New Page" onClick={onNewPage} style={{ color: 'var(--foreground)' }} className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition mt-2 cursor-pointer">
+                <Plus className="w-5 h-5" />
+              </button>
+            )}
           </div>
           {/* Collapsed: Single settings/user icon at the bottom */}
           <div className="mt-auto mb-2 flex flex-col items-center">
-            <button title="Settings" onClick={() => setIsSettingsOpen(true)} style={{ color: 'var(--foreground)' }} className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition">
+            <button title="Settings" onClick={() => setIsSettingsOpen(true)} style={{ color: 'var(--foreground)' }} className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer">
               <Settings className="w-6 h-6" />
             </button>
           </div>
@@ -157,7 +161,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
             </div>
             <div className="flex items-center justify-center">
               <button
-                className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition flex items-center justify-center"
+                className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition flex items-center justify-center cursor-pointer"
                 style={{ color: 'var(--muted)' }}
                 onClick={() => setIsSidebarCollapsed(true)}
                 title="Collapse sidebar"
@@ -166,13 +170,22 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               </button>
             </div>
           </div>
-          {/* Home */}
+          {/* Top: Home and New Page */}
+          {user && (
+            <button className="w-full flex items-center gap-2 px-4 py-2 rounded-xl font-semibold shadow-sm transition text-base mb-4 cursor-pointer"
+              style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
+              onClick={onNewPage}
+              title="New Page"
+            >
+              <Plus className="w-5 h-5" strokeWidth={2} /> New Page
+            </button>
+          )}
           <button
             className={`w-full text-left px-2 py-2 mb-4 rounded-xl transition font-semibold ${
               isHomeSelected
                 ? 'bg-[#7b5dff]/10 border border-[#7b5dff] shadow-sm'
                 : 'bg-transparent border border-transparent hover:bg-[#e4e4e7]/40 dark:hover:bg-[#232326]/40'
-            } hover:opacity-90`}
+            } hover:opacity-90 cursor-pointer`}
             onClick={onSelectHome}
             style={{
               fontFamily: 'Inter, Space Grotesk, sans-serif',
@@ -190,7 +203,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               pages.filter(p => favourites.includes(p.id)).map(page => (
                 <div key={page.id} className={`group flex items-center justify-between px-2 py-1 rounded-xl transition ${page.id === currentPageId ? 'bg-[#7b5dff]/10 border border-[#7b5dff] shadow-sm' : 'bg-transparent border border-transparent hover:bg-[var(--card-bg)]'} hover:opacity-90`} style={{ color: 'var(--foreground)' }}>
                   <button
-                    className={`flex-1 text-left font-medium truncate`}
+                    className={`flex-1 text-left font-medium truncate cursor-pointer`}
                     style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
                     onClick={() => onSelectPage(page.id)}
                   >
@@ -198,7 +211,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                     {page.title || 'Untitled Page'}
                   </button>
                   <Menu as="div" className="relative ml-2">
-                    <MenuButton className="p-1 rounded transition">
+                    <MenuButton className="p-1 rounded transition cursor-pointer">
                       <MoreVertical className="w-4 h-4" />
                     </MenuButton>
                     <MenuItems anchor="bottom end" className="absolute right-0 mt-2 w-40 origin-top-right rounded-xl shadow-lg ring-1 z-10 border max-h-60 overflow-y-auto" style={{ background: 'var(--dropdown-bg)', color: 'var(--foreground)', backdropFilter: 'var(--glass-blur)' }}>
@@ -206,7 +219,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                         <MenuItem>
                           {({ focus }) => (
                             <button
-                              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${focus ? 'menu-item-focus' : ''}`}
+                              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                               onClick={() => onToggleFavourite(page.id)}
                             >
                               <Star className="w-4 h-4" fill={favourites.includes(page.id) ? 'currentColor' : 'none'} /> Remove from favourites
@@ -217,7 +230,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                         <MenuItem>
                           {({ focus }) => (
                             <button
-                              className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''}`}
+                              className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                               onClick={() => onDeletePage(page.id)}
                             >
                               Delete
@@ -232,24 +245,16 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
             )}
           </div>
           {/* Folders Section */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center mb-2">
             <span className="text-md font-bold" style={{ color: 'var(--foreground)' }}>Folders</span>
-            <button
-              className="p-2 rounded-full shadow-sm transition ml-2"
-              style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
-              onClick={onNewPage}
-              title="New Page"
-            >
-              <Plus className="w-5 h-5" strokeWidth={2} />
-            </button>
           </div>
-          <div className="flex flex-col gap-2 mb-6">
+          <div className="flex flex-col gap-2 mb-2">
             {folders.map(folder => (
               <div key={folder.id} className="mb-2 group/folder">
                 <div className="flex items-center gap-2 font-bold text-sm px-2 py-1 relative" style={{ color: 'var(--foreground)' }}>
                   {folder.name}
                   <Menu as="div" className="relative ml-auto">
-                    <MenuButton className="p-1 text-xs opacity-0 group-hover/folder:opacity-100 transition rounded hover:bg-[#ececff] dark:hover:bg-[#232326]">
+                    <MenuButton className="p-1 text-xs opacity-0 group-hover/folder:opacity-100 transition rounded hover:bg-[#ececff] dark:hover:bg-[#232326] cursor-pointer">
                       <MoreVertical className="w-4 h-4" />
                     </MenuButton>
                     <MenuItems anchor="bottom end" className="absolute right-0 mt-2 w-32 origin-top-right rounded-md shadow-lg ring-1 z-10 border max-h-60 overflow-y-auto" style={{ background: 'var(--dropdown-bg)', color: 'var(--foreground)', backdropFilter: 'var(--glass-blur)' }}>
@@ -257,7 +262,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                         <MenuItem>
                           {({ focus }) => (
                             <button
-                              className={`w-full text-left px-4 py-2 text-sm ${focus ? 'menu-item-focus' : ''}`}
+                              className={`w-full text-left px-4 py-2 text-sm ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                               onClick={() => onRenameFolder(folder.id)}
                             >
                               Rename
@@ -267,7 +272,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                         <MenuItem>
                           {({ focus }) => (
                             <button
-                              className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''}`}
+                              className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                               onClick={() => onDeleteFolder(folder.id)}
                             >
                               Delete
@@ -282,14 +287,14 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                   {pages.filter(p => p.folderId === folder.id).map(page => (
                     <div key={page.id} className={`group flex items-center justify-between px-2 py-1 rounded-xl transition ${page.id === currentPageId ? 'bg-[#7b5dff]/10 border border-[#7b5dff] shadow-sm' : 'bg-transparent border border-transparent hover:bg-[var(--card-bg)]'} hover:opacity-90`} style={{ color: 'var(--foreground)' }}>
                       <button
-                        className={`flex-1 text-left font-medium truncate`}
+                        className={`flex-1 text-left font-medium truncate cursor-pointer`}
                         style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
                         onClick={() => onSelectPage(page.id)}
                       >
                         {page.title || 'Untitled Page'}
                       </button>
                       <select
-                        className="ml-2 p-1 rounded text-xs bg-transparent border border-[#e4e4e7] dark:border-[#232326]"
+                        className="ml-2 p-1 rounded text-xs bg-transparent border border-[#e4e4e7] dark:border-[#232326] cursor-pointer"
                         value={folder.id}
                         onChange={e => onMovePage(page.id, e.target.value === 'unsorted' ? undefined : e.target.value)}
                       >
@@ -298,7 +303,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                         ))}
                       </select>
                       <button
-                        className="ml-2 p-1 rounded transition"
+                        className="ml-2 p-1 rounded transition cursor-pointer"
                         style={{ color: '#b0b0b0' }}
                         onMouseOver={e => e.currentTarget.style.color = 'red'}
                         onMouseOut={e => e.currentTarget.style.color = '#b0b0b0'}
@@ -314,84 +319,89 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
             ))}
             {/* New Folder Icon Button at the bottom */}
             <button
-              key="new-folder-btn"
-              className="flex items-center gap-2 mt-2 p-2 rounded-xl transition text-sm font-semibold justify-center"
-              style={{ background: 'transparent', color: 'var(--accent)' }}
-              title="New Folder"
+              className="flex items-center gap-2 text-sm text-[var(--accent)] px-2 py-1 rounded transition cursor-pointer hover:underline bg-transparent"
               onClick={() => handleOpenNewFolderDialog()}
+              title="New Folder"
             >
               <Plus className="w-4 h-4" strokeWidth={2} /> New Folder
             </button>
           </div>
           {/* Unsorted Pages Section */}
-          <div className="flex items-center mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#b0b0b0' }}>Unsorted</div>
+          <div className="flex items-center mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#b0b0b0' }}>All Pages</div>
           <div className="flex flex-col gap-2">
             {pages.filter(p => !p.folderId).map(page => (
               <div key={page.id} className={`group flex items-center justify-between px-2 py-1 rounded-xl transition ${page.id === currentPageId ? 'bg-[#7b5dff]/10 border border-[#7b5dff] shadow-sm' : 'bg-transparent border border-transparent hover:bg-[var(--card-bg)]'} hover:opacity-90`} style={{ color: 'var(--foreground)' }}>
                 <button
-                  className={`flex-1 text-left font-medium truncate`}
+                  className={`flex-1 text-left font-medium truncate cursor-pointer`}
                   style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
                   onClick={() => onSelectPage(page.id)}
                 >
                   {page.title || 'Untitled Page'}
                 </button>
                 <Menu as="div" className="relative ml-2">
-                  <MenuButton className="p-1 rounded transition">
+                  <MenuButton className="p-1 rounded transition cursor-pointer">
                     <MoreVertical className="w-4 h-4" />
                   </MenuButton>
-                  <MenuItems anchor="bottom end" className="absolute right-0 mt-2 w-50 origin-top-right rounded-xl shadow-lg ring-1 z-10 border max-h-60 overflow-y-auto" style={{ background: 'var(--dropdown-bg)', color: 'var(--foreground)', backdropFilter: 'var(--glass-blur)' }}>
-                    <div className="py-1">
-                      <div className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-[var(--muted)] bg-[var(--card-bg)] rounded-t">Add to folder</div>
-                      {folders.length === 0 && (
-                        <div className="px-4 py-2 text-sm text-[var(--muted)] opacity-60 cursor-not-allowed select-none">No folders yet</div>
+                  <MenuItems anchor="bottom end" className="absolute right-0 mt-2 w-50 origin-top-right rounded-xl shadow-lg ring-1 z-10 border max-h-60 overflow-y-auto" style={{
+                    background: 'var(--dropdown-bg)',
+                    color: 'var(--foreground)',
+                    border: '1.5px solid var(--border)',
+                    borderRadius: 16,
+                    boxShadow: '0 4px 24px 0 rgba(0,0,0,0.14)',
+                    backdropFilter: 'var(--glass-blur)',
+                    overflow: 'hidden',
+                    padding: 0,
+                  }}>
+                    <div className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-[var(--muted)] bg-[var(--card-bg)] rounded-t">Add to folder</div>
+                    {folders.length === 0 && (
+                      <div className="px-4 py-2 text-sm text-[var(--muted)] opacity-60 cursor-not-allowed select-none">No folders yet</div>
+                    )}
+                    {folders.map(f => (
+                      <MenuItem key={f.id}>
+                        {({ focus }) => (
+                          <button
+                            className={`w-full text-left px-4 py-2 text-sm ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
+                            onClick={() => onMovePage(page.id, f.id)}
+                          >
+                            {f.name}
+                          </button>
+                        )}
+                      </MenuItem>
+                    ))}
+                    <MenuItem>
+                      {({ focus }) => (
+                        <button
+                          className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
+                          style={{ color: 'var(--accent)', fontWeight: 600 }}
+                          onClick={() => handleOpenNewFolderDialog(page.id)}
+                        >
+                          <Plus className="w-4 h-4" /> Create new folder…
+                        </button>
                       )}
-                      {folders.map(f => (
-                        <MenuItem key={f.id}>
-                          {({ focus }) => (
-                            <button
-                              className={`w-full text-left px-4 py-2 text-sm ${focus ? 'menu-item-focus' : ''}`}
-                              onClick={() => onMovePage(page.id, f.id)}
-                            >
-                              {f.name}
-                            </button>
-                          )}
-                        </MenuItem>
-                      ))}
-                      <MenuItem>
-                        {({ focus }) => (
-                          <button
-                            className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${focus ? 'menu-item-focus' : ''}`}
-                            style={{ color: 'var(--accent)', fontWeight: 600 }}
-                            onClick={() => handleOpenNewFolderDialog(page.id)}
-                          >
-                            <Plus className="w-4 h-4" /> Create new folder…
-                          </button>
-                        )}
-                      </MenuItem>
-                      <div className="border-t my-2" style={{ borderColor: 'var(--border)' }} />
-                      <MenuItem>
-                        {({ focus }) => (
-                          <button
-                            className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${focus ? 'menu-item-focus' : ''}`}
-                            onClick={() => onToggleFavourite(page.id)}
-                          >
-                            <Star className="w-4 h-4" fill={favourites.includes(page.id) ? 'currentColor' : 'none'} />
-                            {favourites.includes(page.id) ? 'Remove from favourites' : 'Add to favourites'}
-                          </button>
-                        )}
-                      </MenuItem>
-                      <div className="border-t my-2" style={{ borderColor: 'var(--border)' }} />
-                      <MenuItem>
-                        {({ focus }) => (
-                          <button
-                            className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''}`}
-                            onClick={() => onDeletePage(page.id)}
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </MenuItem>
-                    </div>
+                    </MenuItem>
+                    <div style={{ borderTop: '1px solid var(--border)', opacity: 0.5, margin: '8px 0' }} />
+                    <MenuItem>
+                      {({ focus }) => (
+                        <button
+                          className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
+                          onClick={() => onToggleFavourite(page.id)}
+                        >
+                          <Star className="w-4 h-4" fill={favourites.includes(page.id) ? 'currentColor' : 'none'} />
+                          {favourites.includes(page.id) ? 'Remove from favourites' : 'Add to favourites'}
+                        </button>
+                      )}
+                    </MenuItem>
+                    <div style={{ borderTop: '1px solid var(--border)', opacity: 0.5, margin: '8px 0' }} />
+                    <MenuItem>
+                      {({ focus }) => (
+                        <button
+                          className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
+                          onClick={() => onDeletePage(page.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </MenuItem>
                   </MenuItems>
                 </Menu>
               </div>
@@ -399,18 +409,28 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
           </div>
           {/* Bottom User/Settings/Theme */}
           <div className="mt-auto flex flex-row items-center justify-between pt-8" style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-2 select-none">
-              <span className="inline-flex items-center justify-center w-9 h-9 rounded-full" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}><User className="w-5 h-5" /></span>
-              <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Username</span>
-            </div>
+            {user ? (
+              <div className="flex items-center gap-2 select-none">
+                <span className="inline-flex items-center justify-center w-9 h-9 rounded-full" style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}><User className="w-5 h-5" /></span>
+                <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Username</span>
+              </div>
+            ) : (
+              <button
+                className="px-4 py-2 rounded-xl font-semibold shadow-sm transition text-base cursor-pointer"
+                style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
+                onClick={onShowAuth}
+              >
+                Login / Signup
+              </button>
+            )}
             <div className="flex flex-row items-center gap-1">
-              <button className="p-2 rounded-full shadow-sm transition" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
+              <button className="p-2 rounded-full shadow-sm transition cursor-pointer" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
                 onClick={() => setIsSettingsOpen(true)}
               >
                 <Settings className="w-5 h-5" strokeWidth={2} />
               </button>
               <Menu as="div" className="relative">
-                <MenuButton className="p-2 rounded-full shadow-sm transition flex items-center justify-center" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}>
+                <MenuButton className="p-2 rounded-full shadow-sm transition flex items-center justify-center cursor-pointer" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}>
                   {theme === 'light' && <Sun className="w-5 h-5" />}
                   {theme === 'dark' && <Moon className="w-5 h-5" />}
                   {theme === 'glass' && <GlassWater className="w-5 h-5" />}
@@ -420,7 +440,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                     <MenuItem>
                       {({ focus, close }) => (
                         <button
-                          className={`w-full flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${focus ? 'menu-item-focus' : ''}`}
+                          className={`w-full flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                           style={{ color: 'var(--foreground)' }}
                           onClick={() => { setTheme('light'); close(); }}
                         >
@@ -431,7 +451,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                     <MenuItem>
                       {({ focus, close }) => (
                         <button
-                          className={`w-full flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${focus ? 'menu-item-focus' : ''}`}
+                          className={`w-full flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                           style={{ color: 'var(--foreground)' }}
                           onClick={() => { setTheme('dark'); close(); }}
                         >
@@ -442,7 +462,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                     <MenuItem>
                       {({ focus, close }) => (
                         <button
-                          className={`w-full flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${focus ? 'menu-item-focus' : ''}`}
+                          className={`w-full flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                           style={{ color: 'var(--foreground)' }}
                           onClick={() => { setTheme('glass'); close(); }}
                         >
@@ -479,10 +499,10 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
             autoFocus
           />
           <div className="flex gap-2 justify-end mt-4">
-            <button className="px-4 py-2 rounded transition font-semibold" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }} onClick={handleCreateNewFolder}>
+            <button className="px-4 py-2 rounded transition font-semibold cursor-pointer" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }} onClick={handleCreateNewFolder}>
               Create
             </button>
-            <button className="px-4 py-2 rounded transition font-semibold" style={{ background: 'transparent', color: 'var(--muted)' }} onClick={() => setIsDialogOpen(false)}>
+            <button className="px-4 py-2 rounded transition font-semibold cursor-pointer" style={{ background: 'transparent', color: 'var(--muted)' }} onClick={() => setIsDialogOpen(false)}>
               Cancel
             </button>
           </div>
@@ -504,7 +524,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
             Are you sure you want to delete this page?
           </div>
           <div className="flex gap-2 justify-end mt-4">
-            <button className="px-4 py-2 rounded transition font-semibold" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
+            <button className="px-4 py-2 rounded transition font-semibold cursor-pointer" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
               onClick={() => {
                 if (pendingDeletePageId) {
                   onDeletePage(pendingDeletePageId);
@@ -516,7 +536,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
             >
               Delete
             </button>
-            <button className="px-4 py-2 rounded transition font-semibold" style={{ background: 'transparent', color: 'var(--muted)' }}
+            <button className="px-4 py-2 rounded transition font-semibold cursor-pointer" style={{ background: 'transparent', color: 'var(--muted)' }}
               onClick={() => {
                 setDeleteDialogOpen(false);
                 setPendingDeletePageId(null);
