@@ -447,21 +447,37 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
           >
             <MoreVertical className="w-5 h-5" strokeWidth={2} />
           </MenuButton>
-          <MenuItems anchor="bottom end" className="absolute right-0 mt-2 w-48 origin-top-right rounded-xl shadow-lg ring-1 z-10 border max-h-60 overflow-y-auto"
-            style={{ background: 'var(--dropdown-bg)', color: 'var(--foreground)', backdropFilter: 'var(--glass-blur)' }}>
+          <MenuItems
+            anchor="bottom end"
+            className="absolute right-0 mt-2 w-48 origin-top-right rounded-2xl shadow-lg ring-1 z-10 border max-h-60 overflow-y-auto"
+            style={{
+              background: 'var(--dropdown-bg)',
+              color: 'var(--foreground)',
+              border: '1.5px solid var(--border)',
+              borderRadius: 16,
+              boxShadow: '0 4px 24px 0 rgba(0,0,0,0.14)',
+              backdropFilter: 'var(--glass-blur)',
+              overflow: 'hidden',
+              padding: 0,
+            }}
+          >
             <div className="py-1">
               <MenuItem>
                 {({ focus }) => (
-                  <button className={`group flex w-full items-center px-4 py-2 text-sm rounded-xl transition ${focus ? 'menu-item-focus' : ''}`}
-                    style={{ color: 'var(--foreground)' }}>
+                  <button
+                    className={`group flex w-full items-center px-4 py-2 text-sm rounded-xl transition ${focus ? 'menu-item-focus' : ''}`}
+                    style={{ color: 'var(--foreground)' }}
+                  >
                     <Upload className="mr-3 w-4 h-4" strokeWidth={2} /> Import
                   </button>
                 )}
               </MenuItem>
               <MenuItem>
                 {({ focus }) => (
-                  <button className={`group flex w-full items-center px-4 py-2 text-sm rounded-xl transition ${focus ? 'menu-item-focus' : ''}`}
-                    style={{ color: 'var(--foreground)' }}>
+                  <button
+                    className={`group flex w-full items-center px-4 py-2 text-sm rounded-xl transition ${focus ? 'menu-item-focus' : ''}`}
+                    style={{ color: 'var(--foreground)' }}
+                  >
                     <Download className="mr-3 w-4 h-4" strokeWidth={2} /> Export
                   </button>
                 )}

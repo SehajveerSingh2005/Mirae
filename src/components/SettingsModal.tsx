@@ -1,15 +1,24 @@
 import { Dialog, Tab } from "@headlessui/react";
+import { Sun, Moon, GlassWater } from "lucide-react";
 
-function SettingsModal({ open, onClose, theme }: { open: boolean; onClose: () => void; theme: string }) {
+function SettingsModal({ open, onClose, theme, setTheme }: { open: boolean; onClose: () => void; theme: string; setTheme: (theme: 'light' | 'dark' | 'glass') => void; }) {
+  // Use the same background logic as the floating toolbar
+  let modalBg = 'var(--dropdown-bg)';
+  if (theme === 'light') modalBg = 'var(--dropdown-bg, rgba(255,255,255,0.85))';
+  if (theme === 'dark') modalBg = 'var(--dropdown-bg, rgba(30,30,40,0.85))';
+  // glass theme uses var(--dropdown-bg)
+
   return (
     <Dialog open={open} onClose={onClose} className="fixed z-50 inset-0 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-[6px] w-full h-full transition-all duration-200" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-[8px] w-full h-full transition-all duration-200" />
       <Dialog.Panel
-        className="relative rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-[var(--border)] flex flex-col gap-4 transition-all duration-200"
+        className="relative rounded-2xl shadow-2xl p-8 w-full max-w-lg border flex flex-col gap-4 transition-all duration-200"
         style={{
-          background: theme === 'glass' ? 'var(--dropdown-bg)' : theme === 'dark' ? '#232326' : '#fff',
+          background: modalBg,
           color: 'var(--foreground)',
-          boxShadow: '0 8px 40px 0 rgba(0,0,0,0.18)'
+          border: '1.5px solid var(--border)',
+          boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
+          backdropFilter: 'var(--glass-blur)',
         }}
       >
         <Dialog.Title className="text-lg font-bold mb-2" style={{ color: 'var(--foreground)' }}>Settings</Dialog.Title>
@@ -27,7 +36,32 @@ function SettingsModal({ open, onClose, theme }: { open: boolean; onClose: () =>
             </Tab.Panel>
             <Tab.Panel className="py-2">
               <div className="text-base font-semibold mb-2">Appearance</div>
-              <div className="text-sm text-[var(--muted)]">Theme, font, and UI customization options will go here.</div>
+              <div className="flex gap-4 items-center mt-2">
+                <button
+                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl border transition font-semibold cursor-pointer ${theme === 'light' ? 'border-[var(--accent)] bg-[var(--button-bg)]' : 'border-transparent bg-transparent hover:bg-[var(--button-hover-bg)]'}`}
+                  onClick={() => setTheme('light')}
+                  aria-label="Light Theme"
+                >
+                  <Sun className="w-6 h-6 mb-1" />
+                  <span className="text-xs">Light</span>
+                </button>
+                <button
+                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl border transition font-semibold cursor-pointer ${theme === 'dark' ? 'border-[var(--accent)] bg-[var(--button-bg)]' : 'border-transparent bg-transparent hover:bg-[var(--button-hover-bg)]'}`}
+                  onClick={() => setTheme('dark')}
+                  aria-label="Dark Theme"
+                >
+                  <Moon className="w-6 h-6 mb-1" />
+                  <span className="text-xs">Dark</span>
+                </button>
+                <button
+                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl border transition font-semibold cursor-pointer ${theme === 'glass' ? 'border-[var(--accent)] bg-[var(--button-bg)]' : 'border-transparent bg-transparent hover:bg-[var(--button-hover-bg)]'}`}
+                  onClick={() => setTheme('glass')}
+                  aria-label="Glass Theme"
+                >
+                  <GlassWater className="w-6 h-6 mb-1" />
+                  <span className="text-xs">Glass</span>
+                </button>
+              </div>
             </Tab.Panel>
             <Tab.Panel className="py-2">
               <div className="text-base font-semibold mb-2">Shortcuts</div>

@@ -25,8 +25,8 @@ const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth }: { onNewPage: (
       {/* Top Bar: Logo and New Page only */}
       <header className="flex items-center justify-between px-8 py-6 border-b backdrop-blur-md" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center select-none">
-          <span className="text-2xl font-extrabold tracking-tight" style={{fontFamily: 'Inter, Space Grotesk, sans-serif', color: 'var(--foreground)'}}>Mirae</span>
-          <span className="text-base font-semibold tracking-wide ml-1 opacity-70" style={{fontFamily: 'Space Grotesk, Inter, sans-serif', color: 'var(--accent)'}}>미래</span>
+          <span className="text-3xl font-extrabold tracking-tight" style={{fontFamily: 'Inter, Space Grotesk, sans-serif', color: 'var(--foreground)'}}>Mirae</span>
+          <span className="text-xl font-semibold tracking-wide ml-1 opacity-70" style={{fontFamily: 'Space Grotesk, Inter, sans-serif', color: 'var(--accent)'}}>미래</span>
         </div>
         <div className="flex items-center justify-center h-full">
           {user ? (
@@ -43,10 +43,19 @@ const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth }: { onNewPage: (
       {/* Main Content */}
       <main className="flex-1 px-8 py-8 flex flex-col items-center" style={{ background: 'var(--background)' }}>
         <div className="mb-8 w-full max-w-2xl mx-auto flex flex-col items-center">
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 mb-6" style={{ color: 'var(--foreground)' }}>
-            {getGreeting()} <span className="text-base font-normal ml-2" style={{ color: 'var(--muted)' }}>Welcome to Mirae.</span>
+          <h2 className="text-4xl font-extrabold tracking-tight flex items-center gap-2 mb-4 text-center" style={{ color: 'var(--foreground)', lineHeight: 1.15 }}>
+            {getGreeting()} <span className="text-2xl font-normal ml-2" style={{ color: 'var(--muted)' }}>Welcome to Mirae.</span>
           </h2>
-          <UniversalSearchBar search={search} setSearch={setSearch} />
+          {!user && (
+            <button
+              className="mt-2 mb-4 px-6 py-3 rounded-xl font-semibold shadow-sm transition text-lg cursor-pointer"
+              style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
+              onClick={onShowAuth}
+            >
+              Login / Signup
+            </button>
+          )}
+          <UniversalSearchBar search={search} setSearch={setSearch} user={user} />
         </div>
         {/* Dashboard Widgets Grid */}
         <div className="w-full max-w-4xl mx-auto mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -54,12 +63,14 @@ const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth }: { onNewPage: (
           <ClockWidget />
         </div>
         {/* Recent Activity or Empty State */}
-        <RecentActivity
-          showEmpty={showEmpty}
-          filteredPages={filteredPages}
-          onNewPage={user ? onNewPage : () => {}}
-          onOpenPage={onOpenPage}
-        />
+        {user && (
+          <RecentActivity
+            showEmpty={showEmpty}
+            filteredPages={filteredPages}
+            onNewPage={onNewPage}
+            onOpenPage={onOpenPage}
+          />
+        )}
       </main>
     </div>
   );

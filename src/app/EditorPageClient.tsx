@@ -7,79 +7,50 @@ import Sidebar from "@/components/Sidebar";
 import { v4 as uuidv4 } from 'uuid';
 import Home from '@/components/Home';
 import { Moon, Sun, GlassWater } from "lucide-react";
-import { supabase } from "@/utils/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
+import { databaseService, type Page, type Folder } from "@/services/database";
+import { checkDatabaseSetup } from "@/utils/databaseCheck";
 import AuthPanel from "@/components/AuthPanel";
+import SettingsModal from "@/components/SettingsModal";
 
 const Tiptap = dynamic(() => import("@/components/Editor"), { ssr: false });
 
-type Folder = { id: string; name: string; pageIds: string[] };
-type Page = { id: string; title: string; content: string; folderId?: string };
-
-function loadFolders(): Folder[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    return JSON.parse(localStorage.getItem('mirae-folders') || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function saveFolders(folders: Folder[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('mirae-folders', JSON.stringify(folders));
-}
-
-function loadPages(): Page[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    return JSON.parse(localStorage.getItem('mirae-pages') || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function savePages(pages: Page[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('mirae-pages', JSON.stringify(pages));
-}
-
-function loadFavourites(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    return JSON.parse(localStorage.getItem('mirae-favourites') || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function saveFavourites(favourites: string[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('mirae-favourites', JSON.stringify(favourites));
-}
+// Types are now imported from database service
 
 export default function EditorPageClient() {
-  const [folders, setFolders] = useState<Folder[]>(() => loadFolders());
-  const [pages, setPages] = useState<Page[]>(() => loadPages());
-  const [currentPageId, setCurrentPageId] = useState(() => pages[0]?.id || '');
-  const [isHomeSelected, setIsHomeSelected] = useState(pages.length === 0);
+  const { user, loading: authLoading, signOutAndClear } = useAuth();
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [currentPageId, setCurrentPageId] = useState('');
+  const [isHomeSelected, setIsHomeSelected] = useState(true);
   const [editorFontSize, setEditorFontSize] = useState(18);
   const [theme, setTheme] = useState<'light' | 'dark' | 'glass'>('light');
   const [mounted, setMounted] = useState(false);
-  const [favourites, setFavourites] = useState<string[]>(() => loadFavourites());
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [showAuth, setShowAuth] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Keep localStorage in sync
-  useEffect(() => { savePages(pages); }, [pages]);
-  useEffect(() => { saveFolders(folders); }, [folders]);
-  useEffect(() => { saveFavourites(favourites); }, [favourites]);
+  // Load data when user is authenticated
+  useEffect(() => {
+    if (user && !authLoading) {
+      loadUserData();
+    } else if (!user && !authLoading) {
+      // Clear data when user is not authenticated
+      setPages([]);
+      setFolders([]);
+      setCurrentPageId('');
+      setIsHomeSelected(true);
+    }
+  }, [user, authLoading]);
 
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem('mirae-theme');
     if (stored) setTheme(stored as 'light' | 'dark' | 'glass');
+    
+    // Check database setup on app load
+    checkDatabaseSetup();
   }, []);
 
   useEffect(() => {
@@ -88,24 +59,65 @@ export default function EditorPageClient() {
     localStorage.setItem('mirae-theme', theme);
   }, [theme, mounted]);
 
-  useEffect(() => {
-    // Get current user session instantly from localStorage
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setAuthChecked(true);
-    });
-    // Listen for auth state changes
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => { listener?.subscription.unsubscribe(); };
-  }, []);
+  const loadUserData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      console.log('Loading data for user:', user.id);
+      const [pagesData, foldersData] = await Promise.all([
+        databaseService.getPages(user.id),
+        databaseService.getFolders(user.id)
+      ]);
+      
+      console.log('Loaded pages:', pagesData.length);
+      console.log('Loaded folders:', foldersData.length);
+      
+      setPages(pagesData);
+      setFolders(foldersData);
+      
+      // Set current page to first page if available
+      if (pagesData.length > 0 && !currentPageId) {
+        setCurrentPageId(pagesData[0].id);
+        setIsHomeSelected(false);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      // Show a more user-friendly error message
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleNewPage = () => {
-    const newPage = { id: uuidv4(), title: '', content: '' };
-    setPages(prev => [newPage, ...prev]);
-    setCurrentPageId(newPage.id);
-    setIsHomeSelected(false);
+  const handleNewPage = async () => {
+    if (!user) {
+      console.error('No user found, cannot create page');
+      return;
+    }
+    
+    console.log('Creating new page for user:', user.id);
+    
+    try {
+      const newPage = await databaseService.createPage(user.id, {
+        title: "Untitled Page",
+        content: "",
+      });
+      
+      console.log('Page created successfully:', newPage);
+      setPages(prev => [newPage, ...prev]);
+      setCurrentPageId(newPage.id);
+      setIsHomeSelected(false);
+    } catch (error) {
+      console.error('Error creating page:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
+      // You might want to show a user-friendly error message here
+      alert('Failed to create page. Please check your connection and try again.');
+    }
   };
 
   const handleSelectPage = (id: string) => {
@@ -130,21 +142,49 @@ export default function EditorPageClient() {
     setCurrentPageId(''); // Deselect any page when going home
   };
 
-  const handleTitleChange = (title: string) => {
-    setPages((prev: Page[]) => prev.map((p: Page) => p.id === currentPageId ? { ...p, title } : p));
+  const handleTitleChange = async (title: string) => {
+    if (!user || !currentPageId) return;
+    
+    try {
+      await databaseService.updatePage(currentPageId, user.id, { title });
+      setPages(prev => prev.map(p => p.id === currentPageId ? { ...p, title } : p));
+    } catch (error) {
+      console.error('Error updating title:', error);
+    }
   };
 
-  const handleSave = (page: Page) => {
-    setPages((prev: Page[]) => prev.map((p: Page) => p.id === page.id ? page : p));
+  const handleSave = async (page: Page) => {
+    if (!user) return;
+    
+    try {
+      await databaseService.updatePage(page.id, user.id, {
+        title: page.title,
+        content: page.content,
+      });
+      setPages(prev => prev.map(p => p.id === page.id ? page : p));
+    } catch (error) {
+      console.error('Error saving page:', error);
+    }
   };
 
-  const handleDeletePage = (id: string) => {
-    setPages((prev: Page[]) => prev.filter((p: Page) => p.id !== id));
-    if (id === currentPageId) {
-      const idx = pages.findIndex(p => p.id === id);
-      const nextPage = pages[idx + 1] || pages[idx - 1];
-      setCurrentPageId(nextPage ? nextPage.id : '');
-      if (!nextPage) setIsHomeSelected(true);
+  const handleDeletePage = async (id: string) => {
+    if (!user) return;
+    
+    try {
+      await databaseService.deletePage(id, user.id);
+      setPages(prev => prev.filter(p => p.id !== id));
+      if (currentPageId === id) {
+        const remainingPages = pages.filter(p => p.id !== id);
+        if (remainingPages.length > 0) {
+          setCurrentPageId(remainingPages[0].id);
+          setIsHomeSelected(false);
+        } else {
+          setCurrentPageId('');
+          setIsHomeSelected(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting page:', error);
     }
   };
 
@@ -153,50 +193,88 @@ export default function EditorPageClient() {
   };
 
   // Folder CRUD
-  const handleNewFolder = (name: string, id: string) => {
-    setFolders(prev => [...prev, { id, name, pageIds: [] }]);
+  const handleNewFolder = async (name: string, id: string) => {
+    if (!user) return;
+    
+    try {
+      const newFolder = await databaseService.createFolder(user.id, { name });
+      setFolders(prev => [...prev, newFolder]);
+    } catch (error) {
+      console.error('Error creating folder:', error);
+    }
   };
 
-  const handleRenameFolder = (id: string) => {
+  const handleRenameFolder = async (id: string) => {
+    if (!user) return;
+    
     const name = prompt('New folder name?');
     if (!name) return;
-    setFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f));
+    
+    try {
+      await databaseService.updateFolder(id, user.id, { name });
+      setFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f));
+    } catch (error) {
+      console.error('Error renaming folder:', error);
+    }
   };
 
-  const handleDeleteFolder = (id: string) => {
+  const handleDeleteFolder = async (id: string) => {
+    if (!user) return;
+    
     if (!window.confirm('Delete this folder and keep its pages unsorted?')) return;
-    setFolders(prev => prev.filter(f => f.id !== id));
-    setPages(prev => prev.map(p => p.folderId === id ? { ...p, folderId: undefined } : p));
+    
+    try {
+      await databaseService.deleteFolder(id, user.id);
+      setFolders(prev => prev.filter(f => f.id !== id));
+      setPages(prev => prev.map(p => p.folder_id === id ? { ...p, folder_id: undefined } : p));
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+    }
   };
 
   // Move page to folder
-  const handleMovePage = (pageId: string, folderId?: string) => {
-    setPages(prev => prev.map(p => p.id === pageId ? { ...p, folderId } : p));
+  const handleMovePage = async (pageId: string, folderId?: string) => {
+    if (!user) return;
+    
+    try {
+      await databaseService.movePageToFolder(pageId, user.id, folderId || null);
+      setPages(prev => prev.map(p => p.id === pageId ? { ...p, folder_id: folderId } : p));
+    } catch (error) {
+      console.error('Error moving page:', error);
+    }
   };
 
-  const handleToggleFavourite = (pageId: string) => {
-    setFavourites(prev =>
-      prev.includes(pageId)
-        ? prev.filter(id => id !== pageId)
-        : [...prev, pageId]
-    );
+  const handleToggleFavourite = async (pageId: string) => {
+    if (!user) return;
+    
+    const page = pages.find(p => p.id === pageId);
+    if (!page) return;
+    
+    try {
+      const updatedPage = await databaseService.toggleFavorite(pageId, user.id, !page.is_favorite);
+      setPages(prev => prev.map(p => p.id === pageId ? updatedPage : p));
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOutAndClear();
+      console.log('Logged out successfully');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const currentPage = pages.find(p => p.id === currentPageId);
 
-  if (!mounted || !authChecked) return null;
+  if (!mounted || authLoading) return null;
 
   return (
     <div className="flex w-screen h-screen min-w-0 min-h-0 overflow-hidden">
       {/* Auth Modal */}
-      {showAuth && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'var(--modal-overlay, rgba(0,0,0,0.18))', backdropFilter: 'var(--glass-blur)' }}>
-          <div className="bg-[var(--dropdown-bg)] rounded-2xl shadow-2xl p-0 max-w-md w-full relative border border-[var(--border)]" style={{ boxShadow: '0 8px 40px 0 rgba(0,0,0,0.18)' }}>
-            <button className="absolute top-2 right-2 p-2 text-xl cursor-pointer z-10 rounded-full hover:bg-[var(--button-hover-bg)] transition" style={{ color: 'var(--muted)' }} onClick={() => setShowAuth(false)}>&times;</button>
-            <AuthPanel />
-          </div>
-        </div>
-      )}
+      <AuthPanel open={showAuth} onClose={() => setShowAuth(false)} theme={theme} />
       {/* Sidebar */}
       <Sidebar
         pages={pages}
@@ -213,12 +291,12 @@ export default function EditorPageClient() {
         onRenameFolder={handleRenameFolder}
         onDeleteFolder={handleDeleteFolder}
         onMovePage={handleMovePage}
-        favourites={favourites}
         onToggleFavourite={handleToggleFavourite}
         isSidebarCollapsed={isSidebarCollapsed}
         setIsSidebarCollapsed={setIsSidebarCollapsed}
         user={user}
         onShowAuth={() => setShowAuth(true)}
+        onLogout={handleLogout}
       />
       {/* Main Content Area */}
       <main className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden relative transition-all duration-200 ${isSidebarCollapsed ? 'ml-0' : ''}`}>
@@ -246,6 +324,7 @@ export default function EditorPageClient() {
         {/* Status Bar */}
         {/* <StatusBar wordCount={wordCount} /> */}
       </main>
+      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} setTheme={setTheme} />
     </div>
   );
 }
