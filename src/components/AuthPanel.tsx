@@ -68,11 +68,9 @@ export default function AuthPanel({ open, onClose, theme }: { open: boolean; onC
         }}
       >
         <button
-          className="absolute top-3 right-3 p-3 text-xl cursor-pointer z-10 rounded-full transition min-w-[40px] min-h-[40px] flex items-center justify-center"
+          className="absolute top-3 right-3 w-10 h-10 aspect-square text-xl cursor-pointer z-10 rounded-full flex items-center justify-center transition hover:bg-[var(--button-hover-bg)]"
           style={{ color: 'var(--muted)', background: 'transparent' }}
           onClick={onClose}
-          onMouseOver={e => (e.currentTarget.style.background = 'var(--button-hover-bg)')}
-          onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
           aria-label="Close"
         >
           &times;

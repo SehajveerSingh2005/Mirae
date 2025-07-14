@@ -137,8 +137,11 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
           {/* Collapsed: Single settings/user icon at the bottom */}
           {user && (
             <div className="mt-auto mb-2 flex flex-col items-center">
+              <button title="Logout" onClick={onLogout} style={{ color: 'var(--foreground)' }} className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer mb-2">
+                <LogOut className="w-5 h-5" />
+              </button>
               <button title="Settings" onClick={() => setIsSettingsOpen(true)} style={{ color: 'var(--foreground)' }} className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer">
-                <Settings className="w-6 h-6" />
+                <Settings className="w-5 h-5" />
               </button>
             </div>
           )}
@@ -415,11 +418,11 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                 <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
                   <button
                     className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
-                    style={{ color: 'var(--muted)' }}
+                    style={{ color: 'var(--foreground)' }}
                     onClick={onLogout}
                     title="Logout"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-5 h-5" />
                   </button>
                   <button className="p-2 rounded-full shadow-sm transition cursor-pointer" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }} onClick={() => setIsSettingsOpen(true)}>
                     <Settings className="w-5 h-5" strokeWidth={2} />

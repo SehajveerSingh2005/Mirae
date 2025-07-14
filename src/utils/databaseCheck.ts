@@ -21,7 +21,11 @@ export async function checkDatabaseSetup() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError) {
-      console.error('❌ Authentication error:', authError.message);
+      if (authError.message === 'Auth session missing!') {
+        console.info('ℹ️  No user session: user is not logged in.');
+      } else {
+        console.error('❌ Authentication error:', authError.message);
+      }
     } else {
       console.log('✅ Authentication working');
       console.log('- Current user:', user ? user.id : 'None');
