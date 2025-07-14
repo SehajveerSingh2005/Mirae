@@ -1,12 +1,48 @@
 import { Dialog, Tab } from "@headlessui/react";
 import { Sun, Moon, GlassWater } from "lucide-react";
+import { useEffect, useState } from "react";
 
-function SettingsModal({ open, onClose, theme, setTheme }: { open: boolean; onClose: () => void; theme: string; setTheme: (theme: 'light' | 'dark' | 'glass') => void; }) {
+function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, startupPosition, autosave, timeFormat }: {
+  open: boolean;
+  onClose: () => void;
+  theme: string;
+  setTheme: (theme: 'light' | 'dark' | 'glass') => void;
+  onSettingsChange?: (settings: { startupPosition: 'last' | 'home'; autosave: boolean; timeFormat: '12h' | '24h'; }) => void;
+  startupPosition: 'last' | 'home';
+  autosave: boolean;
+  timeFormat: '12h' | '24h';
+}) {
   // Use the same background logic as the floating toolbar
   let modalBg = 'var(--dropdown-bg)';
   if (theme === 'light') modalBg = 'var(--dropdown-bg, rgba(255,255,255,0.85))';
   if (theme === 'dark') modalBg = 'var(--dropdown-bg, rgba(30,30,40,0.85))';
   // glass theme uses var(--dropdown-bg)
+
+  // General settings state
+  const [localStartupPosition, setLocalStartupPosition] = useState<'last' | 'home'>(startupPosition);
+  const [localAutosave, setLocalAutosave] = useState<boolean>(autosave);
+  const [localTimeFormat, setLocalTimeFormat] = useState<'12h' | '24h'>(timeFormat);
+
+  // Sync local state with props on open or prop change
+  useEffect(() => {
+    if (open) {
+      setLocalStartupPosition(startupPosition);
+      setLocalAutosave(autosave);
+      setLocalTimeFormat(timeFormat);
+    }
+  }, [open, startupPosition, autosave, timeFormat]);
+
+  // Save to localStorage and notify parent on every change
+  useEffect(() => {
+    localStorage.setItem('mirae-startup-position', localStartupPosition);
+    localStorage.setItem('mirae-autosave', localAutosave ? 'true' : 'false');
+    localStorage.setItem('mirae-time-format', localTimeFormat);
+    onSettingsChange && onSettingsChange({
+      startupPosition: localStartupPosition,
+      autosave: localAutosave,
+      timeFormat: localTimeFormat
+    });
+  }, [localStartupPosition, localAutosave, localTimeFormat, onSettingsChange]);
 
   return (
     <Dialog open={open} onClose={onClose} className="fixed z-50 inset-0 flex items-center justify-center">
@@ -21,6 +57,7 @@ function SettingsModal({ open, onClose, theme, setTheme }: { open: boolean; onCl
           backdropFilter: 'var(--glass-blur)',
         }}
       >
+        {/* TODO: Replace Dialog.Title and Tab.Group with new primitives when stable */}
         <Dialog.Title className="text-lg font-bold mb-2" style={{ color: 'var(--foreground)' }}>Settings</Dialog.Title>
         <Tab.Group>
           <Tab.List className="flex gap-2 border-b border-[var(--border)] mb-4">
@@ -32,7 +69,77 @@ function SettingsModal({ open, onClose, theme, setTheme }: { open: boolean; onCl
           <Tab.Panels>
             <Tab.Panel className="py-2">
               <div className="text-base font-semibold mb-2">General</div>
-              <div className="text-sm text-[var(--muted)]">Preferences for startup, behaviour, and more will go here.</div>
+              <div className="flex flex-col gap-4 mt-2">
+                {/* Startup Position */}
+                <div className="rounded-xl p-4 bg-[var(--card-bg)] border border-[var(--border)] flex flex-col gap-2">
+                  <div className="font-medium mb-1" style={{ color: 'var(--foreground)' }}>Startup Position</div>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="startup-position"
+                        checked={localStartupPosition === 'last'}
+                        onChange={() => setLocalStartupPosition('last')}
+                        className="accent-[var(--accent)] w-4 h-4 transition-all"
+                      />
+                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Last Opened Page</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="startup-position"
+                        checked={localStartupPosition === 'home'}
+                        onChange={() => setLocalStartupPosition('home')}
+                        className="accent-[var(--accent)] w-4 h-4 transition-all"
+                      />
+                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Home</span>
+                    </label>
+                  </div>
+                </div>
+                {/* Autosave */}
+                <div className="rounded-xl p-4 bg-[var(--card-bg)] border border-[var(--border)] flex flex-col gap-2">
+                  <div className="font-medium mb-1" style={{ color: 'var(--foreground)' }}>Autosave</div>
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <span className="relative inline-block w-10 h-6">
+                      <input
+                        type="checkbox"
+                        checked={localAutosave}
+                        onChange={e => setLocalAutosave(e.target.checked)}
+                        className="peer opacity-0 w-10 h-6 absolute left-0 top-0 cursor-pointer"
+                      />
+                      <span className="absolute left-0 top-0 w-10 h-6 rounded-full transition bg-[var(--input-bg)] border border-[var(--border)] peer-checked:bg-[var(--accent)]" />
+                      <span className="absolute top-1 left-1 w-4 h-4 rounded-full bg-[var(--foreground)] transition peer-checked:translate-x-4" />
+                    </span>
+                    <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Enable autosave</span>
+                  </label>
+                </div>
+                {/* Date/Time Format */}
+                <div className="rounded-xl p-4 bg-[var(--card-bg)] border border-[var(--border)] flex flex-col gap-2">
+                  <div className="font-medium mb-1" style={{ color: 'var(--foreground)' }}>Date/Time Format</div>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="time-format"
+                        checked={localTimeFormat === '12h'}
+                        onChange={() => setLocalTimeFormat('12h')}
+                        className="accent-[var(--accent)] w-4 h-4 transition-all"
+                      />
+                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>12-hour</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="time-format"
+                        checked={localTimeFormat === '24h'}
+                        onChange={() => setLocalTimeFormat('24h')}
+                        className="accent-[var(--accent)] w-4 h-4 transition-all"
+                      />
+                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>24-hour</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </Tab.Panel>
             <Tab.Panel className="py-2">
               <div className="text-base font-semibold mb-2">Appearance</div>

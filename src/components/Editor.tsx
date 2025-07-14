@@ -30,12 +30,13 @@ function getProseFontSizeClass(fontSize?: number) {
 
 const lowlight = createLowlight(all);
 
-const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }: {
+const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, autosave = true }: {
   onWordCountChange: (wordCount: number, charCount: number) => void;
   page?: { id: string; title: string; content: string };
   onTitleChange?: (title: string) => void;
   onSave?: (page: { id: string; title: string; content: string }) => void;
   onDeletePage?: (id: string) => void;
+  autosave?: boolean;
 }) => {
   const [title, setTitle] = useState(page?.title || "");
   const [wordCount, setWordCount] = useState(0);
@@ -119,7 +120,7 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
       setWordCount(words);
       setCharCount(chars);
       onWordCountChange(words, chars);
-      if (onSave) {
+      if (autosave && onSave) {
         onSave({ id: page?.id || '', title, content: editor.getHTML() });
       }
     };
@@ -129,7 +130,16 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage }
     return () => {
       editor.off("update", handleUpdate);
     };
-  }, [editor, onWordCountChange, onSave, page?.id, title]);
+  }, [editor, onWordCountChange, onSave, page?.id, title, autosave]);
+
+  // Manual save handler
+  const handleManualSave = () => {
+    if (onSave && editor) {
+      onSave({ id: page?.id || '', title, content: editor.getHTML() });
+      setSyncStatus('● Synced');
+      setTimeout(() => setSyncStatus(''), 1200);
+    }
+  };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);

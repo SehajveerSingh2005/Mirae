@@ -29,11 +29,15 @@ interface SidebarProps {
   user: any;
   onShowAuth: () => void;
   onLogout: () => void;
+  startupPosition: 'last' | 'home';
+  autosave: boolean;
+  timeFormat: '12h' | '24h';
+  onSettingsChange: (settings: { startupPosition: 'last' | 'home'; autosave: boolean; timeFormat: '12h' | '24h'; }) => void;
 }
 
 const themeOrder = ['light', 'dark', 'glass'] as const;
 
-const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed, user, onShowAuth, onLogout }: SidebarProps) => {
+const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed, user, onShowAuth, onLogout, startupPosition, autosave, timeFormat, onSettingsChange }: SidebarProps) => {
   const nextTheme = () => {
     const idx = themeOrder.indexOf(theme);
     setTheme(themeOrder[(idx + 1) % themeOrder.length]);
@@ -454,7 +458,16 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
         </>
       )}
       {/* SettingsModal and Dialog always rendered so they work in both modes */}
-      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} setTheme={setTheme} />
+      <SettingsModal
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        setTheme={setTheme}
+        startupPosition={startupPosition}
+        autosave={autosave}
+        timeFormat={timeFormat}
+        onSettingsChange={onSettingsChange}
+      />
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[6px] w-full h-full transition-all duration-200" />
         <Dialog.Panel

@@ -6,7 +6,6 @@ import Sidebar from "@/components/Sidebar";
 // import StatusBar from "@/components/StatusBar";
 import { v4 as uuidv4 } from 'uuid';
 import Home from '@/components/Home';
-import { Moon, Sun, GlassWater } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { databaseService, type Page, type Folder } from "@/services/database";
 import { checkDatabaseSetup } from "@/utils/databaseCheck";
@@ -30,6 +29,10 @@ export default function EditorPageClient() {
   const [showAuth, setShowAuth] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // Settings state
+  const [startupPosition, setStartupPosition] = useState<'last' | 'home'>('last');
+  const [autosave, setAutosave] = useState(true);
+  const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('24h');
 
   // Load data when user is authenticated
   useEffect(() => {
@@ -48,11 +51,22 @@ export default function EditorPageClient() {
     setMounted(true);
     const stored = localStorage.getItem('mirae-theme');
     if (stored) setTheme(stored as 'light' | 'dark' | 'glass');
-    
     // Check database setup on app load
     checkDatabaseSetup();
+    // Load settings from localStorage (client only)
+    if (typeof window !== 'undefined') {
+      const startup = localStorage.getItem('mirae-startup-position') as 'last' | 'home' || 'last';
+      setStartupPosition(startup);
+      if (startup === 'home') {
+        setIsHomeSelected(true);
+        setCurrentPageId('');
+      }
+      setAutosave(localStorage.getItem('mirae-autosave') !== 'false');
+      setTimeFormat(localStorage.getItem('mirae-time-format') as '12h' | '24h' || '24h');
+    }
   }, []);
 
+  // Only sync theme to localStorage
   useEffect(() => {
     if (!mounted) return;
     document.body.setAttribute('data-theme', theme);
@@ -267,6 +281,16 @@ export default function EditorPageClient() {
     }
   };
 
+  // Handler for settings change from modal
+  const handleSettingsChange = (settings: { startupPosition: 'last' | 'home'; autosave: boolean; timeFormat: '12h' | '24h'; }) => {
+    setStartupPosition(settings.startupPosition);
+    setAutosave(settings.autosave);
+    setTimeFormat(settings.timeFormat);
+    localStorage.setItem('mirae-startup-position', settings.startupPosition);
+    localStorage.setItem('mirae-autosave', settings.autosave ? 'true' : 'false');
+    localStorage.setItem('mirae-time-format', settings.timeFormat);
+  };
+
   const currentPage = pages.find(p => p.id === currentPageId);
 
   if (!mounted || authLoading) return null;
@@ -297,6 +321,10 @@ export default function EditorPageClient() {
         user={user}
         onShowAuth={() => setShowAuth(true)}
         onLogout={handleLogout}
+        startupPosition={startupPosition}
+        autosave={autosave}
+        timeFormat={timeFormat}
+        onSettingsChange={handleSettingsChange}
       />
       {/* Main Content Area */}
       <main className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden relative transition-all duration-200 ${isSidebarCollapsed ? 'ml-0' : ''}`}>
@@ -314,9 +342,10 @@ export default function EditorPageClient() {
               <Tiptap
                 page={currentPage}
                 onTitleChange={handleTitleChange}
-                onSave={handleSave}
+                onSave={page => currentPage && handleSave({ ...currentPage, ...page })}
                 onWordCountChange={() => {}}
                 onDeletePage={handleDeletePage}
+                autosave={autosave}
               />
             </div>
           )}
@@ -324,7 +353,12 @@ export default function EditorPageClient() {
         {/* Status Bar */}
         {/* <StatusBar wordCount={wordCount} /> */}
       </main>
-      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} setTheme={setTheme} />
+      <SettingsModal open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} theme={theme} setTheme={setTheme} 
+        onSettingsChange={handleSettingsChange}
+        startupPosition={startupPosition}
+        autosave={autosave}
+        timeFormat={timeFormat}
+      />
     </div>
   );
 }

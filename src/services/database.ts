@@ -40,6 +40,14 @@ export interface UpdateFolderData {
   name: string;
 }
 
+export interface UserSettings {
+  user_id: string;
+  startup_position: 'last' | 'home';
+  autosave: boolean;
+  time_format: '12h' | '24h';
+  updated_at?: string;
+}
+
 class DatabaseService {
   // Pages
   async getPages(userId: string): Promise<Page[]> {
@@ -208,6 +216,39 @@ class DatabaseService {
       .single();
 
     if (error) throw error;
+    return data;
+  }
+
+  // User Settings
+  async getUserSettings(userId: string): Promise<UserSettings | null> {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    if (error && error.code !== 'PGRST116') { // not found is ok
+      console.error('Error fetching user settings:', error);
+      throw new Error(`Failed to fetch user settings: ${error.message}`);
+    }
+    return data || null;
+  }
+
+  async upsertUserSettings(userId: string, settings: { startupPosition: 'last' | 'home'; autosave: boolean; timeFormat: '12h' | '24h'; }): Promise<UserSettings> {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .upsert({
+        user_id: userId,
+        startup_position: settings.startupPosition,
+        autosave: settings.autosave,
+        time_format: settings.timeFormat,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      .select()
+      .single();
+    if (error) {
+      console.error('Error upserting user settings:', error);
+      throw new Error(`Failed to upsert user settings: ${error.message}`);
+    }
     return data;
   }
 }
