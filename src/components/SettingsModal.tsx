@@ -18,31 +18,7 @@ function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, start
   if (theme === 'dark') modalBg = 'var(--dropdown-bg, rgba(30,30,40,0.85))';
   // glass theme uses var(--dropdown-bg)
 
-  // General settings state
-  const [localStartupPosition, setLocalStartupPosition] = useState<'last' | 'home'>(startupPosition);
-  const [localAutosave, setLocalAutosave] = useState<boolean>(autosave);
-  const [localTimeFormat, setLocalTimeFormat] = useState<'12h' | '24h'>(timeFormat);
-
-  // Sync local state with props on open or prop change
-  useEffect(() => {
-    if (open) {
-      setLocalStartupPosition(startupPosition);
-      setLocalAutosave(autosave);
-      setLocalTimeFormat(timeFormat);
-    }
-  }, [open, startupPosition, autosave, timeFormat]);
-
-  // Save to localStorage and notify parent on every change
-  useEffect(() => {
-    localStorage.setItem('mirae-startup-position', localStartupPosition);
-    localStorage.setItem('mirae-autosave', localAutosave ? 'true' : 'false');
-    localStorage.setItem('mirae-time-format', localTimeFormat);
-    onSettingsChange && onSettingsChange({
-      startupPosition: localStartupPosition,
-      autosave: localAutosave,
-      timeFormat: localTimeFormat
-    });
-  }, [localStartupPosition, localAutosave, localTimeFormat, onSettingsChange]);
+  // Remove all local state and use props directly
 
   return (
     <Dialog open={open} onClose={onClose} className="fixed z-50 inset-0 flex items-center justify-center">
@@ -78,8 +54,12 @@ function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, start
                       <input
                         type="radio"
                         name="startup-position"
-                        checked={localStartupPosition === 'last'}
-                        onChange={() => setLocalStartupPosition('last')}
+                        checked={startupPosition === 'last'}
+                        onChange={() => onSettingsChange && onSettingsChange({
+                          startupPosition: 'last',
+                          autosave,
+                          timeFormat
+                        })}
                         className="accent-[var(--accent)] w-4 h-4 transition-all"
                       />
                       <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Last Opened Page</span>
@@ -88,8 +68,12 @@ function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, start
                       <input
                         type="radio"
                         name="startup-position"
-                        checked={localStartupPosition === 'home'}
-                        onChange={() => setLocalStartupPosition('home')}
+                        checked={startupPosition === 'home'}
+                        onChange={() => onSettingsChange && onSettingsChange({
+                          startupPosition: 'home',
+                          autosave,
+                          timeFormat
+                        })}
                         className="accent-[var(--accent)] w-4 h-4 transition-all"
                       />
                       <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Home</span>
@@ -103,8 +87,12 @@ function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, start
                     <span className="relative inline-block w-10 h-6">
                       <input
                         type="checkbox"
-                        checked={localAutosave}
-                        onChange={e => setLocalAutosave(e.target.checked)}
+                        checked={autosave}
+                        onChange={e => onSettingsChange && onSettingsChange({
+                          startupPosition,
+                          autosave: e.target.checked,
+                          timeFormat
+                        })}
                         className="peer opacity-0 w-10 h-6 absolute left-0 top-0 cursor-pointer"
                       />
                       <span className="absolute left-0 top-0 w-10 h-6 rounded-full transition bg-[var(--input-bg)] border border-[var(--border)] peer-checked:bg-[var(--accent)]" />
@@ -121,8 +109,12 @@ function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, start
                       <input
                         type="radio"
                         name="time-format"
-                        checked={localTimeFormat === '12h'}
-                        onChange={() => setLocalTimeFormat('12h')}
+                        checked={timeFormat === '12h'}
+                        onChange={() => onSettingsChange && onSettingsChange({
+                          startupPosition,
+                          autosave,
+                          timeFormat: '12h'
+                        })}
                         className="accent-[var(--accent)] w-4 h-4 transition-all"
                       />
                       <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>12-hour</span>
@@ -131,8 +123,12 @@ function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, start
                       <input
                         type="radio"
                         name="time-format"
-                        checked={localTimeFormat === '24h'}
-                        onChange={() => setLocalTimeFormat('24h')}
+                        checked={timeFormat === '24h'}
+                        onChange={() => onSettingsChange && onSettingsChange({
+                          startupPosition,
+                          autosave,
+                          timeFormat: '24h'
+                        })}
                         className="accent-[var(--accent)] w-4 h-4 transition-all"
                       />
                       <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>24-hour</span>

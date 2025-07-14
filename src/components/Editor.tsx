@@ -6,7 +6,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Underline from "@tiptap/extension-underline";
 import { useState, useEffect, useRef } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { MoreVertical, Download, Upload, Trash2, Bold, Italic, Underline as UnderlineIcon, Strikethrough, Undo2, Redo2, MoreHorizontal, Minus, Plus, Star } from "lucide-react";
+import { MoreVertical, Download, Upload, Trash2, Bold, Italic, Underline as UnderlineIcon, Strikethrough, Undo2, Redo2, MoreHorizontal, Minus, Plus, Star, Loader2 } from "lucide-react";
 import { Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, Image as ImageIcon, Table as TableIcon, ExternalLink } from "lucide-react";
 import Highlight from "@tiptap/extension-highlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
@@ -41,7 +41,8 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
   const [title, setTitle] = useState(page?.title || "");
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
-  const [syncStatus, setSyncStatus] = useState("● Synced");
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 200, left: 400 });
   const [slashFilter, setSlashFilter] = useState('');
@@ -106,6 +107,8 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
     if (editor && page?.content !== undefined) {
       editor.commands.setContent(page.content);
     }
+    setDirty(false);
+    setSaving(false);
     // eslint-disable-next-line
   }, [page?.id]);
 
@@ -120,8 +123,14 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
       setWordCount(words);
       setCharCount(chars);
       onWordCountChange(words, chars);
+      setDirty(true);
       if (autosave && onSave) {
+        setSaving(true);
         onSave({ id: page?.id || '', title, content: editor.getHTML() });
+        setTimeout(() => {
+          setDirty(false);
+          setSaving(false);
+        }, 800); // debounce for visual feedback
       }
     };
 
@@ -135,9 +144,12 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
   // Manual save handler
   const handleManualSave = () => {
     if (onSave && editor) {
+      setSaving(true);
       onSave({ id: page?.id || '', title, content: editor.getHTML() });
-      setSyncStatus('● Synced');
-      setTimeout(() => setSyncStatus(''), 1200);
+      setTimeout(() => {
+        setDirty(false);
+        setSaving(false);
+      }, 800);
     }
   };
 
@@ -448,6 +460,25 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
           value={title}
           onChange={handleTitleChange}
           style={{fontFamily: 'Inter, Space Grotesk, sans-serif', color: 'var(--foreground)', background: 'transparent'}}/>
+        {/* Save Indicator */}
+        <div className="flex items-center gap-2 min-w-[140px]">
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
+              <span className="text-sm text-[var(--accent)]">Saving...</span>
+            </>
+          ) : dirty ? (
+            <>
+              <span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" />
+              <span className="text-sm text-yellow-500">Unsaved changes</span>
+            </>
+          ) : (
+            <>
+              <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
+              <span className="text-sm text-green-600">All changes saved</span>
+            </>
+          )}
+        </div>
         <Menu as="div" className="relative inline-block text-left">
           <MenuButton
             className="p-2 rounded-full shadow-sm transition flex items-center justify-center"
