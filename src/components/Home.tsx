@@ -14,7 +14,7 @@ const getGreeting = () => {
   return "Good evening!";
 };
 
-const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth }: { onNewPage: () => void, onOpenPage: (id: string) => void, pages: Array<{ id: string, title: string, content: string }>, user: any, onShowAuth: () => void }) => {
+const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth, timeFormat }: { onNewPage: () => void, onOpenPage: (id: string) => void, pages: Array<{ id: string, title: string, content: string }>, user: any, onShowAuth: () => void, timeFormat: '12h' | '24h' }) => {
   const [search, setSearch] = useState("");
   const filteredPages = search.trim()
     ? pages.filter(p => (p.title || "Untitled Page").toLowerCase().includes(search.toLowerCase()))
@@ -33,7 +33,7 @@ const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth }: { onNewPage: (
             <button
               className="flex items-center gap-2 px-5 py-2 rounded-xl font-semibold shadow-sm transition text-base cursor-pointer"
               style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
-              onClick={onNewPage}
+              onClick={async () => await onNewPage()}
             >
               <Plus className="w-5 h-5" strokeWidth={2} /> New Page
             </button>
@@ -60,15 +60,15 @@ const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth }: { onNewPage: (
         {/* Dashboard Widgets Grid */}
         <div className="w-full max-w-4xl mx-auto mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           <CalendarWidget />
-          <ClockWidget />
+          <ClockWidget timeFormat={timeFormat} />
         </div>
         {/* Recent Activity or Empty State */}
         {user && (
           <RecentActivity
             showEmpty={showEmpty}
             filteredPages={filteredPages}
-            onNewPage={onNewPage}
-            onOpenPage={onOpenPage}
+            onNewPage={async () => await onNewPage()}
+            onOpenPage={async (id) => await onOpenPage(id)}
           />
         )}
       </main>

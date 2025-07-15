@@ -30,19 +30,22 @@ function getProseFontSizeClass(fontSize?: number) {
 
 const lowlight = createLowlight(all);
 
-const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, autosave = true }: {
+const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, autosave = true, onDirtyChange, onSavingChange }: {
   onWordCountChange: (wordCount: number, charCount: number) => void;
   page?: { id: string; title: string; content: string };
   onTitleChange?: (title: string) => void;
   onSave?: (page: { id: string; title: string; content: string }) => void;
   onDeletePage?: (id: string) => void;
   autosave?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
+  onSavingChange?: (saving: boolean) => void;
 }) => {
   const [title, setTitle] = useState(page?.title || "");
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const autosaveTimer = useRef<NodeJS.Timeout | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 200, left: 400 });
   const [slashFilter, setSlashFilter] = useState('');
@@ -109,6 +112,8 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
     }
     setDirty(false);
     setSaving(false);
+    if (onDirtyChange) onDirtyChange(false);
+    if (onSavingChange) onSavingChange(false);
     // eslint-disable-next-line
   }, [page?.id]);
 
@@ -126,11 +131,13 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
       setDirty(true);
       if (autosave && onSave) {
         setSaving(true);
-        onSave({ id: page?.id || '', title, content: editor.getHTML() });
-        setTimeout(() => {
+        // Debounce actual save
+        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+        autosaveTimer.current = setTimeout(() => {
+          onSave({ id: page?.id || '', title, content: editor.getHTML() });
           setDirty(false);
           setSaving(false);
-        }, 800); // debounce for visual feedback
+        }, 800);
       }
     };
 
@@ -138,6 +145,7 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
 
     return () => {
       editor.off("update", handleUpdate);
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
   }, [editor, onWordCountChange, onSave, page?.id, title, autosave]);
 
@@ -152,6 +160,20 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
       }, 800);
     }
   };
+
+  // Keyboard shortcut for manual save (Ctrl+S / Cmd+S)
+  useEffect(() => {
+    if (autosave) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (dirty && !saving) handleManualSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [autosave, dirty, saving, handleManualSave]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
@@ -448,6 +470,22 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
     };
   }, [editor]);
 
+  // Notify parent of dirty/saving state changes
+  useEffect(() => {
+    if (onDirtyChange) onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (onSavingChange) onSavingChange(saving);
+  }, [saving, onSavingChange]);
+
+  // On unmount, reset dirty/saving in parent
+  useEffect(() => {
+    return () => {
+      if (onDirtyChange) onDirtyChange(false);
+      if (onSavingChange) onSavingChange(false);
+    };
+  }, []);
+
   return (
     <div className="h-full flex flex-col transition-all glass-editor group/editor-area"
       style={{ background: 'var(--editor-bg)', color: 'var(--foreground)', backdropFilter: 'var(--glass-blur)' }}>
@@ -479,6 +517,19 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
             </>
           )}
         </div>
+        {/* Manual Save Button (only if autosave is off and dirty) */}
+        {(!autosave && dirty) && (
+          <button
+            className="px-4 py-2 rounded-xl font-semibold shadow-sm transition text-base cursor-pointer flex items-center gap-2"
+            style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
+            onClick={handleManualSave}
+            disabled={saving}
+            title="Save (Ctrl+S)"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            Save
+          </button>
+        )}
         <Menu as="div" className="relative inline-block text-left">
           <MenuButton
             className="p-2 rounded-full shadow-sm transition flex items-center justify-center"

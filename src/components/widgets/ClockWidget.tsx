@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 
-const ClockWidget = () => {
+const ClockWidget = ({ timeFormat = '24h' }: { timeFormat?: '12h' | '24h' }) => {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
-  const hours = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  const hours = time.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: timeFormat === '12h',
+  });
   const dateStr = time.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   return (
     <div className="rounded-2xl shadow-sm p-8 flex flex-col items-center justify-center gap-2 transition" style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', minHeight: 180 }}>

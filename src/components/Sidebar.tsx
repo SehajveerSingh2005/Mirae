@@ -33,11 +33,13 @@ interface SidebarProps {
   autosave: boolean;
   timeFormat: '12h' | '24h';
   onSettingsChange: (settings: { startupPosition: 'last' | 'home'; autosave: boolean; timeFormat: '12h' | '24h'; }) => void;
+  creatingPage?: boolean;
+  deletingPageIds?: string[];
 }
 
 const themeOrder = ['light', 'dark', 'glass'] as const;
 
-const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed, user, onShowAuth, onLogout, startupPosition, autosave, timeFormat, onSettingsChange }: SidebarProps) => {
+const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed, user, onShowAuth, onLogout, startupPosition, autosave, timeFormat, onSettingsChange, creatingPage = false, deletingPageIds = [] }: SidebarProps) => {
   const nextTheme = () => {
     const idx = themeOrder.indexOf(theme);
     setTheme(themeOrder[(idx + 1) % themeOrder.length]);
@@ -100,7 +102,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
           <div className="flex flex-col items-center gap-2 flex-1 overflow-y-auto w-full">
             <button
               title="Home"
-              onClick={onSelectHome}
+              onClick={async () => await onSelectHome()}
               style={{ color: isHomeSelected ? 'var(--accent)' : 'var(--foreground)' }}
               className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
             >
@@ -119,7 +121,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               <button
                 key={page.id}
                 title={page.title || 'Untitled Page'}
-                onClick={() => onSelectPage(page.id)}
+                onClick={async () => await onSelectPage(page.id)}
                 style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
                 className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
                 onContextMenu={e => {
@@ -134,7 +136,14 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
             {/* New Page button */}
             {user && (
               <button title="New Page" onClick={onNewPage} style={{ color: 'var(--foreground)' }} className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition mt-2 cursor-pointer">
-                <Plus className="w-5 h-5" />
+                {creatingPage ? (
+                  <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <Plus className="w-5 h-5" />
+                )}
               </button>
             )}
           </div>
@@ -177,7 +186,14 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               onClick={onNewPage}
               title="New Page"
             >
-              <Plus className="w-5 h-5" strokeWidth={2} /> New Page
+              {creatingPage ? (
+                <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <Plus className="w-5 h-5" strokeWidth={2} />
+              )} New Page
             </button>
           )}
           <button
@@ -186,7 +202,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                 ? 'bg-[#7b5dff]/10 border border-[#7b5dff] shadow-sm'
                 : 'bg-transparent border border-transparent hover:bg-[#e4e4e7]/40 dark:hover:bg-[#232326]/40'
             } hover:opacity-90 cursor-pointer`}
-            onClick={onSelectHome}
+            onClick={async () => await onSelectHome()}
             style={{
               fontFamily: 'Inter, Space Grotesk, sans-serif',
               color: isHomeSelected ? 'var(--accent)' : 'var(--foreground)'
@@ -205,7 +221,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                   <button
                     className={`flex-1 text-left font-medium truncate cursor-pointer`}
                     style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
-                    onClick={() => onSelectPage(page.id)}
+                    onClick={async () => await onSelectPage(page.id)}
                   >
                     <Star className="inline w-4 h-4 mr-1 text-[var(--accent)]" fill="currentColor" />
                     {page.title || 'Untitled Page'}
@@ -232,7 +248,14 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                             <button
                               className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                               onClick={() => onDeletePage(page.id)}
+                              disabled={deletingPageIds.includes(page.id)}
                             >
+                              {deletingPageIds.includes(page.id) ? (
+                                <svg className="animate-spin h-4 w-4 text-red-500 inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              ) : null}
                               Delete
                             </button>
                           )}
@@ -291,7 +314,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                           <button
                             className={`flex-1 text-left font-medium truncate cursor-pointer`}
                             style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
-                            onClick={() => onSelectPage(page.id)}
+                            onClick={async () => await onSelectPage(page.id)}
                           >
                             {page.title || 'Untitled Page'}
                           </button>
@@ -311,8 +334,16 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                             onMouseOut={e => e.currentTarget.style.color = '#b0b0b0'}
                             onClick={() => onDeletePage(page.id)}
                             title="Delete Page"
+                            disabled={deletingPageIds.includes(page.id)}
                           >
-                            <Trash2 className="w-4 h-4" strokeWidth={2} />
+                            {deletingPageIds.includes(page.id) ? (
+                              <svg className="animate-spin h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                              <Trash2 className="w-4 h-4" strokeWidth={2} />
+                            )}
                           </button>
                         </div>
                       ))}
@@ -340,7 +371,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                 <button
                   className={`flex-1 text-left font-medium truncate cursor-pointer`}
                   style={{ color: page.id === currentPageId ? 'var(--accent)' : 'var(--foreground)' }}
-                  onClick={() => onSelectPage(page.id)}
+                  onClick={async () => await onSelectPage(page.id)}
                 >
                   {page.title || 'Untitled Page'}
                 </button>
@@ -403,7 +434,14 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                         <button
                           className={`w-full text-left px-4 py-2 text-sm text-red-500 ${focus ? 'menu-item-focus' : ''} cursor-pointer`}
                           onClick={() => onDeletePage(page.id)}
+                          disabled={deletingPageIds.includes(page.id)}
                         >
+                          {deletingPageIds.includes(page.id) ? (
+                            <svg className="animate-spin h-4 w-4 text-red-500 inline-block mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : null}
                           Delete
                         </button>
                       )}

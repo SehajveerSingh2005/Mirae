@@ -46,92 +46,66 @@ function SettingsModal({ open, onClose, theme, setTheme, onSettingsChange, start
             <Tab.Panel className="py-2">
               <div className="text-base font-semibold mb-2">General</div>
               <div className="flex flex-col gap-4 mt-2">
-                {/* Startup Position */}
-                <div className="rounded-xl p-4 bg-[var(--card-bg)] border border-[var(--border)] flex flex-col gap-2">
-                  <div className="font-medium mb-1" style={{ color: 'var(--foreground)' }}>Startup Position</div>
+                {/* Startup Position Setting */}
+                <div className="mb-6">
+                  <div className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Startup Position</div>
                   <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="radio"
-                        name="startup-position"
-                        checked={startupPosition === 'last'}
-                        onChange={() => onSettingsChange && onSettingsChange({
-                          startupPosition: 'last',
-                          autosave,
-                          timeFormat
-                        })}
-                        className="accent-[var(--accent)] w-4 h-4 transition-all"
-                      />
-                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Last Opened Page</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="radio"
-                        name="startup-position"
-                        checked={startupPosition === 'home'}
-                        onChange={() => onSettingsChange && onSettingsChange({
-                          startupPosition: 'home',
-                          autosave,
-                          timeFormat
-                        })}
-                        className="accent-[var(--accent)] w-4 h-4 transition-all"
-                      />
-                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Home</span>
-                    </label>
+                    {['last', 'home'].map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`px-5 py-2 rounded-xl font-semibold transition-all duration-200 border text-base ${startupPosition === option ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)] shadow-lg' : 'bg-[var(--dropdown-bg)] border-[var(--border)] text-[var(--muted)]'}`}
+                        style={{backdropFilter: 'var(--glass-blur)', minWidth: 100}}
+                        onClick={() => onSettingsChange && onSettingsChange({ startupPosition: option as 'last' | 'home', autosave, timeFormat })}
+                        tabIndex={0}
+                        aria-pressed={startupPosition === option}
+                      >
+                        {option === 'last' ? 'Last Opened' : 'Home'}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                {/* Autosave */}
-                <div className="rounded-xl p-4 bg-[var(--card-bg)] border border-[var(--border)] flex flex-col gap-2">
-                  <div className="font-medium mb-1" style={{ color: 'var(--foreground)' }}>Autosave</div>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <span className="relative inline-block w-10 h-6">
-                      <input
-                        type="checkbox"
-                        checked={autosave}
-                        onChange={e => onSettingsChange && onSettingsChange({
-                          startupPosition,
-                          autosave: e.target.checked,
-                          timeFormat
-                        })}
-                        className="peer opacity-0 w-10 h-6 absolute left-0 top-0 cursor-pointer"
-                      />
-                      <span className="absolute left-0 top-0 w-10 h-6 rounded-full transition bg-[var(--input-bg)] border border-[var(--border)] peer-checked:bg-[var(--accent)]" />
-                      <span className="absolute top-1 left-1 w-4 h-4 rounded-full bg-[var(--foreground)] transition peer-checked:translate-x-4" />
-                    </span>
-                    <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>Enable autosave</span>
-                  </label>
-                </div>
-                {/* Date/Time Format */}
-                <div className="rounded-xl p-4 bg-[var(--card-bg)] border border-[var(--border)] flex flex-col gap-2">
-                  <div className="font-medium mb-1" style={{ color: 'var(--foreground)' }}>Date/Time Format</div>
+                {/* Time Format Setting */}
+                <div className="mb-6">
+                  <div className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Time Format</div>
                   <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="radio"
-                        name="time-format"
-                        checked={timeFormat === '12h'}
-                        onChange={() => onSettingsChange && onSettingsChange({
-                          startupPosition,
-                          autosave,
-                          timeFormat: '12h'
-                        })}
-                        className="accent-[var(--accent)] w-4 h-4 transition-all"
-                      />
-                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>12-hour</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="radio"
-                        name="time-format"
-                        checked={timeFormat === '24h'}
-                        onChange={() => onSettingsChange && onSettingsChange({
-                          startupPosition,
-                          autosave,
-                          timeFormat: '24h'
-                        })}
-                        className="accent-[var(--accent)] w-4 h-4 transition-all"
-                      />
-                      <span className="text-sm group-hover:text-[var(--accent)] transition" style={{ color: 'var(--muted)' }}>24-hour</span>
+                    {['24h', '12h'].map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`px-5 py-2 rounded-xl font-semibold transition-all duration-200 border text-base ${timeFormat === option ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)] shadow-lg' : 'bg-[var(--dropdown-bg)] border-[var(--border)] text-[var(--muted)]'}`}
+                        style={{backdropFilter: 'var(--glass-blur)', minWidth: 100}}
+                        onClick={() => onSettingsChange && onSettingsChange({ startupPosition, autosave, timeFormat: option as '12h' | '24h' })}
+                        tabIndex={0}
+                        aria-pressed={timeFormat === option}
+                      >
+                        {option === '24h' ? '24-Hour' : '12-Hour'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Autosave Setting */}
+                <div className="mb-2">
+                  <div className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Autosave</div>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-3 cursor-pointer group px-5 py-2 rounded-xl border transition-all duration-200 focus-within:ring-2 focus-within:ring-[var(--accent)]" style={{ background: 'var(--dropdown-bg)', borderColor: 'var(--border)', backdropFilter: 'var(--glass-blur)' }}>
+                      <span className="text-base font-semibold" style={{ color: autosave ? 'var(--accent)' : 'var(--muted)' }}>
+                        Enable autosave
+                      </span>
+                      <span className="relative inline-block w-10 h-6">
+                        <input
+                          type="checkbox"
+                          checked={autosave}
+                          onChange={e => onSettingsChange && onSettingsChange({
+                            startupPosition,
+                            autosave: e.target.checked,
+                            timeFormat
+                          })}
+                          className="peer opacity-0 w-10 h-6 absolute left-0 top-0 cursor-pointer"
+                        />
+                        <span className="absolute left-0 top-0 w-10 h-6 rounded-full transition bg-[var(--input-bg)] border border-[var(--border)] peer-checked:bg-[var(--accent)]" />
+                        <span className="absolute top-1 left-1 w-4 h-4 rounded-full bg-[var(--foreground)] transition peer-checked:translate-x-4" />
+                      </span>
                     </label>
                   </div>
                 </div>

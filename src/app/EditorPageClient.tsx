@@ -16,6 +16,45 @@ const Tiptap = dynamic(() => import("@/components/Editor"), { ssr: false });
 
 // Types are now imported from database service
 
+function UnsavedChangesModal({ open, onConfirm, onCancel }: { open: boolean, onConfirm: () => Promise<void>, onCancel: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[6px]">
+      <div
+        className="rounded-2xl shadow-2xl p-8 w-full max-w-sm border flex flex-col gap-4"
+        style={{
+          background: 'var(--dropdown-bg)',
+          color: 'var(--foreground)',
+          border: '1.5px solid var(--border)',
+          boxShadow: '0 8px 40px 0 rgba(0,0,0,0.18)',
+          backdropFilter: 'var(--glass-blur)',
+        }}
+      >
+        <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--foreground)' }}>Unsaved Changes</h2>
+        <div className="text-base" style={{ color: 'var(--foreground)' }}>
+          You have unsaved changes. Discard them and continue?
+        </div>
+        <div className="flex gap-2 justify-end mt-4">
+          <button
+            className="px-4 py-2 rounded-xl font-semibold transition cursor-pointer shadow-sm"
+            style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }}
+            onClick={onConfirm}
+          >
+            Discard & Continue
+          </button>
+          <button
+            className="px-4 py-2 rounded-xl font-semibold transition cursor-pointer"
+            style={{ background: 'transparent', color: 'var(--muted)' }}
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EditorPageClient() {
   const { user, loading: authLoading, signOutAndClear } = useAuth();
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -33,6 +72,21 @@ export default function EditorPageClient() {
   const [startupPosition, setStartupPosition] = useState<'last' | 'home'>('last');
   const [autosave, setAutosave] = useState(true);
   const [timeFormat, setTimeFormat] = useState<'12h' | '24h'>('24h');
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [editorSaving, setEditorSaving] = useState(false);
+  const [creatingPage, setCreatingPage] = useState(false);
+  const [deletingPageIds, setDeletingPageIds] = useState<string[]>([]);
+  const [pendingNavigation, setPendingNavigation] = useState<null | { type: 'home' } | { type: 'page', id: string }>(null);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [intendedNav, setIntendedNav] = useState<{ type: 'home' } | { type: 'page', id: string } | null>(null);
+  const [initializing, setInitializing] = useState(true);
+
+  // Helper: persist navigation state in sessionStorage
+  const persistSessionNav = (nav: { type: 'home' } | { type: 'page', id: string }) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('mirae-session-nav', JSON.stringify(nav));
+    }
+  };
 
   // Load data when user is authenticated
   useEffect(() => {
@@ -47,24 +101,67 @@ export default function EditorPageClient() {
     }
   }, [user, authLoading]);
 
+  // On mount, determine intended navigation (before data loads)
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem('mirae-theme');
     if (stored) setTheme(stored as 'light' | 'dark' | 'glass');
-    // Check database setup on app load
     checkDatabaseSetup();
-    // Load settings from localStorage (client only)
     if (typeof window !== 'undefined') {
       const startup = localStorage.getItem('mirae-startup-position') as 'last' | 'home' || 'last';
       setStartupPosition(startup);
-      if (startup === 'home') {
-        setIsHomeSelected(true);
-        setCurrentPageId('');
-      }
       setAutosave(localStorage.getItem('mirae-autosave') !== 'false');
       setTimeFormat(localStorage.getItem('mirae-time-format') as '12h' | '24h' || '24h');
+      // Determine intended nav
+      const sessionNav = sessionStorage.getItem('mirae-session-nav');
+      if (sessionNav) {
+        try {
+          const nav = JSON.parse(sessionNav);
+          if (nav.type === 'home') setIntendedNav({ type: 'home' });
+          else if (nav.type === 'page' && nav.id) setIntendedNav({ type: 'page', id: nav.id });
+          else setIntendedNav(null);
+        } catch { setIntendedNav(null); }
+      } else if (startup === 'home') {
+        setIntendedNav({ type: 'home' });
+      } else if (startup === 'last') {
+        const lastPageId = localStorage.getItem('mirae-last-page-id');
+        if (lastPageId) setIntendedNav({ type: 'page', id: lastPageId });
+        else setIntendedNav({ type: 'home' });
+      }
     }
   }, []);
+
+  // After user/pages load, resolve navigation
+  useEffect(() => {
+    if (!user || authLoading || !mounted || !intendedNav) return;
+    if (pages.length === 0) return; // Wait for pages to load
+    if (intendedNav.type === 'home') {
+      setIsHomeSelected(true);
+      setCurrentPageId('');
+      setInitializing(false);
+    } else if (intendedNav.type === 'page') {
+      if (pages.some(p => p.id === intendedNav.id)) {
+        setCurrentPageId(intendedNav.id);
+        setIsHomeSelected(false);
+        setInitializing(false);
+      } else {
+        // Fallback: open home if page not found
+        setIsHomeSelected(true);
+        setCurrentPageId('');
+        setInitializing(false);
+      }
+    }
+  }, [user, authLoading, mounted, intendedNav, pages]);
+
+  // Persist last opened page on navigation
+  useEffect(() => {
+    if (!isHomeSelected && currentPageId) {
+      localStorage.setItem('mirae-last-page-id', currentPageId);
+      persistSessionNav({ type: 'page', id: currentPageId });
+    } else if (isHomeSelected) {
+      persistSessionNav({ type: 'home' });
+    }
+  }, [isHomeSelected, currentPageId]);
 
   // Only sync theme to localStorage
   useEffect(() => {
@@ -73,87 +170,65 @@ export default function EditorPageClient() {
     localStorage.setItem('mirae-theme', theme);
   }, [theme, mounted]);
 
-  const loadUserData = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      console.log('Loading data for user:', user.id);
-      const [pagesData, foldersData] = await Promise.all([
-        databaseService.getPages(user.id),
-        databaseService.getFolders(user.id)
-      ]);
-      
-      console.log('Loaded pages:', pagesData.length);
-      console.log('Loaded folders:', foldersData.length);
-      
-      setPages(pagesData);
-      setFolders(foldersData);
-      
-      // Set current page to first page if available
-      if (pagesData.length > 0 && !currentPageId) {
-        setCurrentPageId(pagesData[0].id);
-        setIsHomeSelected(false);
+  // Show browser warning if there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (editorDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
       }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      // Show a more user-friendly error message
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-      }
-    } finally {
-      setLoading(false);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [editorDirty]);
+
+  // Helper to delete untitled/empty page
+  const maybeDeleteUntitledEmptyPage = async () => {
+    const current = pages.find(p => p.id === currentPageId);
+    if (current && !current.title.trim() && !current.content.trim()) {
+      await handleDeletePage(currentPageId);
     }
   };
 
-  const handleNewPage = async () => {
-    if (!user) {
-      console.error('No user found, cannot create page');
-      return;
-    }
-    
-    console.log('Creating new page for user:', user.id);
-    
-    try {
-      const newPage = await databaseService.createPage(user.id, {
-        title: "Untitled Page",
-        content: "",
-      });
-      
-      console.log('Page created successfully:', newPage);
-      setPages(prev => [newPage, ...prev]);
-      setCurrentPageId(newPage.id);
+  // Navigation handlers with unsaved check
+  const confirmNavigation = async (nav: { type: 'home' } | { type: 'page', id: string }) => {
+    await maybeDeleteUntitledEmptyPage();
+    if (nav.type === 'home') {
+      setIsHomeSelected(true);
+      setCurrentPageId('');
+    } else if (nav.type === 'page') {
+      setCurrentPageId(nav.id);
       setIsHomeSelected(false);
-    } catch (error) {
-      console.error('Error creating page:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-      }
-      // You might want to show a user-friendly error message here
-      alert('Failed to create page. Please check your connection and try again.');
     }
+    setPendingNavigation(null);
+    setShowUnsavedModal(false);
   };
 
-  const handleSelectPage = (id: string) => {
-    // Only delete the previous page if it is untitled and empty and you are navigating away from it
+  const handleSelectPage = async (id: string) => {
     if (id !== currentPageId) {
-      const current = pages.find(p => p.id === currentPageId);
-      if (current && !current.title.trim() && !current.content.trim()) {
-        setPages(prev => prev.filter(p => p.id !== currentPageId));
+      if (editorDirty) {
+        setPendingNavigation({ type: 'page', id });
+        setShowUnsavedModal(true);
+        return;
       }
+      await maybeDeleteUntitledEmptyPage();
     }
     setCurrentPageId(id);
     setIsHomeSelected(false);
+    persistSessionNav({ type: 'page', id });
   };
 
-  const handleSelectHome = () => {
-    // If current page is untitled and empty, delete it
-    const current = pages.find(p => p.id === currentPageId);
-    if (current && !current.title.trim() && !current.content.trim()) {
-      setPages(prev => prev.filter(p => p.id !== currentPageId));
+  const handleSelectHome = async () => {
+    if (editorDirty) {
+      setPendingNavigation({ type: 'home' });
+      setShowUnsavedModal(true);
+      return;
     }
+    await maybeDeleteUntitledEmptyPage();
     setIsHomeSelected(true);
-    setCurrentPageId(''); // Deselect any page when going home
+    setCurrentPageId('');
+    persistSessionNav({ type: 'home' });
   };
 
   const handleTitleChange = async (title: string) => {
@@ -183,22 +258,28 @@ export default function EditorPageClient() {
 
   const handleDeletePage = async (id: string) => {
     if (!user) return;
-    
+    setDeletingPageIds(prev => [...prev, id]);
+    // Optimistically remove page
+    setPages(prev => prev.filter(p => p.id !== id));
+    if (currentPageId === id) {
+      const remainingPages = pages.filter(p => p.id !== id);
+      if (remainingPages.length > 0) {
+        setCurrentPageId(remainingPages[0].id);
+        setIsHomeSelected(false);
+      } else {
+        setCurrentPageId('');
+        setIsHomeSelected(true);
+      }
+    }
     try {
-      await databaseService.deletePage(id, user.id);
-      setPages(prev => prev.filter(p => p.id !== id));
-      if (currentPageId === id) {
-        const remainingPages = pages.filter(p => p.id !== id);
-        if (remainingPages.length > 0) {
-          setCurrentPageId(remainingPages[0].id);
-          setIsHomeSelected(false);
-        } else {
-          setCurrentPageId('');
-          setIsHomeSelected(true);
-        }
+      // Only call backend if not a temp page
+      if (!id.startsWith('temp-')) {
+        await databaseService.deletePage(id, user.id);
       }
     } catch (error) {
-      console.error('Error deleting page:', error);
+      alert('Failed to delete page. Please refresh.');
+    } finally {
+      setDeletingPageIds(prev => prev.filter(pid => pid !== id));
     }
   };
 
@@ -291,9 +372,75 @@ export default function EditorPageClient() {
     localStorage.setItem('mirae-time-format', settings.timeFormat);
   };
 
+  // Restore loadUserData
+  const loadUserData = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const [pagesData, foldersData] = await Promise.all([
+        databaseService.getPages(user.id),
+        databaseService.getFolders(user.id)
+      ]);
+      setPages(pagesData);
+      setFolders(foldersData);
+      if (pagesData.length > 0 && !currentPageId) {
+        setCurrentPageId(pagesData[0].id);
+        setIsHomeSelected(false);
+      }
+    } catch (error) {
+      // error handling
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Restore handleNewPage
+  const handleNewPage = async () => {
+    if (!user) {
+      return;
+    }
+    setCreatingPage(true);
+    const tempId = 'temp-' + uuidv4();
+    const optimisticPage = {
+      id: tempId,
+      title: 'Untitled Page',
+      content: '',
+      user_id: user.id,
+      folder_id: undefined,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_favorite: false,
+    };
+    setPages(prev => [optimisticPage, ...prev]);
+    setCurrentPageId(tempId);
+    setIsHomeSelected(false);
+    try {
+      const newPage = await databaseService.createPage(user.id, {
+        title: 'Untitled Page',
+        content: '',
+      });
+      setPages(prev => prev.map(p => p.id === tempId ? newPage : p));
+      setCurrentPageId(newPage.id);
+    } catch (error) {
+      setPages(prev => prev.filter(p => p.id !== tempId));
+      setCurrentPageId('');
+      setIsHomeSelected(true);
+      alert('Failed to create page. Please check your connection and try again.');
+    } finally {
+      setCreatingPage(false);
+    }
+  };
+
   const currentPage = pages.find(p => p.id === currentPageId);
 
-  if (!mounted || authLoading) return null;
+  if (!mounted || authLoading || initializing) {
+    // Show a full-page loading spinner (glassmorphic)
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[6px] z-50">
+        <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-screen h-screen min-w-0 min-h-0 overflow-hidden">
@@ -325,9 +472,22 @@ export default function EditorPageClient() {
         autosave={autosave}
         timeFormat={timeFormat}
         onSettingsChange={handleSettingsChange}
+        creatingPage={creatingPage}
+        deletingPageIds={deletingPageIds}
       />
       {/* Main Content Area */}
       <main className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden relative transition-all duration-200 ${isSidebarCollapsed ? 'ml-0' : ''}`}>
+        {/* Global loading overlay */}
+        {/* {loading && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm">
+            <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+          </div>
+        )} */}
+        <UnsavedChangesModal
+          open={showUnsavedModal}
+          onConfirm={async () => { if (pendingNavigation) await confirmNavigation(pendingNavigation); }}
+          onCancel={() => { setPendingNavigation(null); setShowUnsavedModal(false); }}
+        />
         <div className="flex-1 overflow-y-auto relative">
           {isHomeSelected ? (
             <Home 
@@ -336,6 +496,7 @@ export default function EditorPageClient() {
               onOpenPage={handleSelectPage}
               user={user}
               onShowAuth={() => setShowAuth(true)}
+              timeFormat={timeFormat}
             />
           ) : (
             <div className="h-full flex flex-col relative group/editor-area">
@@ -346,6 +507,8 @@ export default function EditorPageClient() {
                 onWordCountChange={() => {}}
                 onDeletePage={handleDeletePage}
                 autosave={autosave}
+                onDirtyChange={setEditorDirty}
+                onSavingChange={setEditorSaving}
               />
             </div>
           )}
