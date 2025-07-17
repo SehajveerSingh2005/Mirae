@@ -57,6 +57,7 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
   const [pendingImageInsert, setPendingImageInsert] = useState<null | ((src: string) => void)>(null);
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const titleDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -177,7 +178,12 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
-    if (onTitleChange) onTitleChange(e.target.value);
+    if (onTitleChange) {
+      if (titleDebounceTimer.current) clearTimeout(titleDebounceTimer.current);
+      titleDebounceTimer.current = setTimeout(() => {
+        onTitleChange(e.target.value);
+      }, 600);
+    }
   };
 
   // Helper: get text before caret up to the start of the block
@@ -481,6 +487,7 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
   // On unmount, reset dirty/saving in parent
   useEffect(() => {
     return () => {
+      if (titleDebounceTimer.current) clearTimeout(titleDebounceTimer.current);
       if (onDirtyChange) onDirtyChange(false);
       if (onSavingChange) onSavingChange(false);
     };
@@ -494,9 +501,9 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
         style={{ background: 'var(--editor-bg)', color: 'var(--foreground)', borderBottom: '1px solid var(--border)' }}>
         <input
           className="flex-1 bg-transparent border-none outline-none text-2xl font-extrabold px-2 py-1 rounded-lg transition"
-          placeholder="Untitled Page"
           value={title}
           onChange={handleTitleChange}
+          placeholder="Untitled Page"
           style={{fontFamily: 'Inter, Space Grotesk, sans-serif', color: 'var(--foreground)', background: 'transparent'}}/>
         {/* Save Indicator */}
         <div className="flex items-center gap-2 min-w-[140px]">

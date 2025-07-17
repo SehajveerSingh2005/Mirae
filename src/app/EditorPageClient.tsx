@@ -11,6 +11,7 @@ import { databaseService, type Page, type Folder } from "@/services/database";
 import { checkDatabaseSetup } from "@/utils/databaseCheck";
 import AuthPanel from "@/components/AuthPanel";
 import SettingsModal from "@/components/SettingsModal";
+import QuickSearchOverlay from '@/components/QuickSearchOverlay';
 
 const Tiptap = dynamic(() => import("@/components/Editor"), { ssr: false });
 
@@ -44,7 +45,7 @@ function UnsavedChangesModal({ open, onConfirm, onCancel }: { open: boolean, onC
           </button>
           <button
             className="px-4 py-2 rounded-xl font-semibold transition cursor-pointer"
-            style={{ background: 'transparent', color: 'var(--muted)' }}
+            style={{ background: 'transparent', color: 'var (--muted)' }}
             onClick={onCancel}
           >
             Cancel
@@ -80,6 +81,7 @@ export default function EditorPageClient() {
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [intendedNav, setIntendedNav] = useState<{ type: 'home' } | { type: 'page', id: string } | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false);
 
   // Helper: persist navigation state in sessionStorage
   const persistSessionNav = (nav: { type: 'home' } | { type: 'page', id: string }) => {
@@ -133,33 +135,42 @@ export default function EditorPageClient() {
 
   // After user/pages load, resolve navigation
   useEffect(() => {
-    if (!user || authLoading || !mounted || !intendedNav) return;
+    if (!user || authLoading || !mounted) return;
     if (pages.length === 0) return; // Wait for pages to load
-    if (intendedNav.type === 'home') {
-      setIsHomeSelected(true);
-      setCurrentPageId('');
-      setInitializing(false);
-    } else if (intendedNav.type === 'page') {
-      if (pages.some(p => p.id === intendedNav.id)) {
-        setCurrentPageId(intendedNav.id);
-        setIsHomeSelected(false);
-        setInitializing(false);
-      } else {
-        // Fallback: open home if page not found
+    if (creatingPage) return; // Prevent flicker: don't run nav effect while creating a page
+    // If currentPageId is set and exists in pages, do nothing
+    if (currentPageId && pages.some(p => p.id === currentPageId)) return;
+    // If intendedNav is set, use it
+    if (intendedNav) {
+      if (intendedNav.type === 'home') {
         setIsHomeSelected(true);
         setCurrentPageId('');
         setInitializing(false);
+      } else if (intendedNav.type === 'page') {
+        if (pages.some(p => p.id === intendedNav.id)) {
+          setCurrentPageId(intendedNav.id);
+          setIsHomeSelected(false);
+          setInitializing(false);
+        } else {
+          // Fallback: open home if page not found
+          setIsHomeSelected(true);
+          setCurrentPageId('');
+          setInitializing(false);
+        }
       }
+    } else if (!currentPageId && pages.length > 0) {
+      // If no current page, default to first page
+      setCurrentPageId(pages[0].id);
+      setIsHomeSelected(false);
+      setInitializing(false);
     }
-  }, [user, authLoading, mounted, intendedNav, pages]);
+  }, [user, authLoading, mounted, intendedNav, pages, creatingPage, currentPageId]);
 
   // Persist last opened page on navigation
   useEffect(() => {
     if (!isHomeSelected && currentPageId) {
       localStorage.setItem('mirae-last-page-id', currentPageId);
       persistSessionNav({ type: 'page', id: currentPageId });
-    } else if (isHomeSelected) {
-      persistSessionNav({ type: 'home' });
     }
   }, [isHomeSelected, currentPageId]);
 
@@ -183,10 +194,24 @@ export default function EditorPageClient() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [editorDirty]);
 
+  // Global Ctrl+K handler
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setQuickSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   // Helper to delete untitled/empty page
   const maybeDeleteUntitledEmptyPage = async () => {
     const current = pages.find(p => p.id === currentPageId);
-    if (current && !current.title.trim() && !current.content.trim()) {
+    // Treat empty title or default placeholder as untitled
+    if (current && (!current.title.trim()) && !current.content.trim()) {
       await handleDeletePage(currentPageId);
     }
   };
@@ -228,30 +253,31 @@ export default function EditorPageClient() {
     await maybeDeleteUntitledEmptyPage();
     setIsHomeSelected(true);
     setCurrentPageId('');
+    setIntendedNav({ type: 'home' });
     persistSessionNav({ type: 'home' });
   };
 
   const handleTitleChange = async (title: string) => {
     if (!user || !currentPageId) return;
-    
     try {
       await databaseService.updatePage(currentPageId, user.id, { title });
       setPages(prev => prev.map(p => p.id === currentPageId ? { ...p, title } : p));
     } catch (error) {
+      alert('Failed to update title. Please check your connection and try again.');
       console.error('Error updating title:', error);
     }
   };
 
   const handleSave = async (page: Page) => {
     if (!user) return;
-    
     try {
       await databaseService.updatePage(page.id, user.id, {
         title: page.title,
         content: page.content,
       });
-      setPages(prev => prev.map(p => p.id === page.id ? page : p));
+      setPages(prev => prev.map(p => p.id === page.id ? { ...p, title: page.title, content: page.content } : p));
     } catch (error) {
+      alert('Failed to save page. Please check your connection and try again.');
       console.error('Error saving page:', error);
     }
   };
@@ -383,10 +409,7 @@ export default function EditorPageClient() {
       ]);
       setPages(pagesData);
       setFolders(foldersData);
-      if (pagesData.length > 0 && !currentPageId) {
-        setCurrentPageId(pagesData[0].id);
-        setIsHomeSelected(false);
-      }
+      // Do not set currentPageId or isHomeSelected here. Navigation will be handled by the intendedNav effect.
     } catch (error) {
       // error handling
     } finally {
@@ -403,7 +426,7 @@ export default function EditorPageClient() {
     const tempId = 'temp-' + uuidv4();
     const optimisticPage = {
       id: tempId,
-      title: 'Untitled Page',
+      title: '', // Use empty string, not 'Untitled Page'
       content: '',
       user_id: user.id,
       folder_id: undefined,
@@ -416,11 +439,13 @@ export default function EditorPageClient() {
     setIsHomeSelected(false);
     try {
       const newPage = await databaseService.createPage(user.id, {
-        title: 'Untitled Page',
+        title: '',
         content: '',
       });
       setPages(prev => prev.map(p => p.id === tempId ? newPage : p));
       setCurrentPageId(newPage.id);
+      persistSessionNav({ type: 'page', id: newPage.id });
+      setIntendedNav({ type: 'page', id: newPage.id });
     } catch (error) {
       setPages(prev => prev.filter(p => p.id !== tempId));
       setCurrentPageId('');
@@ -444,6 +469,17 @@ export default function EditorPageClient() {
 
   return (
     <div className="flex w-screen h-screen min-w-0 min-h-0 overflow-hidden">
+      {/* Quick Search Overlay */}
+      <QuickSearchOverlay
+        open={quickSearchOpen}
+        onClose={() => setQuickSearchOpen(false)}
+        pages={pages}
+        folders={folders}
+        user={user}
+        onSelectPage={handleSelectPage}
+        onSelectHome={handleSelectHome}
+        theme={theme}
+      />
       {/* Auth Modal */}
       <AuthPanel open={showAuth} onClose={() => setShowAuth(false)} theme={theme} />
       {/* Sidebar */}
@@ -474,6 +510,8 @@ export default function EditorPageClient() {
         onSettingsChange={handleSettingsChange}
         creatingPage={creatingPage}
         deletingPageIds={deletingPageIds}
+        // Add quick search trigger
+        onOpenQuickSearch={() => setQuickSearchOpen(true)}
       />
       {/* Main Content Area */}
       <main className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden relative transition-all duration-200 ${isSidebarCollapsed ? 'ml-0' : ''}`}>

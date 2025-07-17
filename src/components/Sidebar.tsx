@@ -35,11 +35,12 @@ interface SidebarProps {
   onSettingsChange: (settings: { startupPosition: 'last' | 'home'; autosave: boolean; timeFormat: '12h' | '24h'; }) => void;
   creatingPage?: boolean;
   deletingPageIds?: string[];
+  onOpenQuickSearch?: () => void;
 }
 
 const themeOrder = ['light', 'dark', 'glass'] as const;
 
-const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed, user, onShowAuth, onLogout, startupPosition, autosave, timeFormat, onSettingsChange, creatingPage = false, deletingPageIds = [] }: SidebarProps) => {
+const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDeletePage, onSelectHome, isHomeSelected, theme, setTheme, onNewFolder, onRenameFolder, onDeleteFolder, onMovePage, onToggleFavourite, isSidebarCollapsed, setIsSidebarCollapsed, user, onShowAuth, onLogout, startupPosition, autosave, timeFormat, onSettingsChange, creatingPage = false, deletingPageIds = [], onOpenQuickSearch }: SidebarProps) => {
   const nextTheme = () => {
     const idx = themeOrder.indexOf(theme);
     setTheme(themeOrder[(idx + 1) % themeOrder.length]);
@@ -88,6 +89,15 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               <span style={{display: 'block'}}>래</span>
             </span>
           </div>
+          {/* Quick Search Button (collapsed) */}
+          <button
+            className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
+            style={{ color: 'var(--muted)' }}
+            onClick={onOpenQuickSearch}
+            title="Quick Search (Ctrl+K)"
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </button>
           <div className="flex w-full justify-center items-center mb-6">
             <button
               className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
@@ -168,7 +178,16 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
               {/* Korean logo horizontal in expanded mode */}
               <span className="text-base font-semibold tracking-wide ml-1 opacity-70" style={{fontFamily: 'Space Grotesk, sans-serif', color: 'var(--accent)'}}>미래</span>
             </div>
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center gap-2">
+              {/* Quick Search Button (expanded) */}
+              <button
+                className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition flex items-center justify-center cursor-pointer"
+                style={{ color: 'var(--muted)' }}
+                onClick={onOpenQuickSearch}
+                title="Quick Search (Ctrl+K)"
+              >
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              </button>
               <button
                 className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition flex items-center justify-center cursor-pointer"
                 style={{ color: 'var(--muted)' }}
@@ -380,7 +399,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                     <MoreVertical className="w-4 h-4" />
                   </MenuButton>
                   <MenuItems anchor="bottom end" className="absolute right-0 mt-2 w-50 origin-top-right rounded-xl shadow-lg ring-1 z-10 border max-h-60 overflow-y-auto" style={{
-                    background: 'var(--dropdown-bg)',
+                    background: theme === 'glass' ? 'var(--menu-bg)' : 'var(--dropdown-bg)',
                     color: 'var(--foreground)',
                     border: '1.5px solid var(--border)',
                     borderRadius: 16,

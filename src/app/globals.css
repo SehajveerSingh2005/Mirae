@@ -57,7 +57,9 @@ body[data-theme='glass'] {
   --button-hover-bg: #6a4ee6;
   --input-bg: rgba(255,255,255,0.08);
   --input-fg: var(--foreground);
-  --glass-blur: blur(16px);
+  --dropdown-bg: rgba(28, 28, 30, 0.8);
+  --glass-blur: blur(12px);
+  --menu-bg: rgba(28,28,30,0.95);
 }
 
 @theme inline {
