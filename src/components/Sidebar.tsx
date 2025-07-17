@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Settings, Trash2, Home as HomeIcon, Sun, Moon, GlassWater, Star, User, MoreVertical, FileText, ArrowLeft, ArrowRight, LogOut } from "lucide-react";
+import { Plus, Settings, Trash2, Home as HomeIcon, Sun, Moon, GlassWater, Star, User, MoreVertical, FileText, ArrowLeft, ArrowRight, LogOut, Search } from "lucide-react";
 import { Menu, MenuButton, MenuItem, MenuItems, Dialog, Tab } from "@headlessui/react";
 import { useState } from "react";
 import SettingsModal from "./SettingsModal";
@@ -186,7 +186,7 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                 onClick={onOpenQuickSearch}
                 title="Quick Search (Ctrl+K)"
               >
-                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <Search className="w-5 h-5 mx-auto my-auto" />
               </button>
               <button
                 className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition flex items-center justify-center cursor-pointer"
@@ -478,14 +478,14 @@ const Sidebar = ({ pages, folders, currentPageId, onSelectPage, onNewPage, onDel
                 <span className="font-semibold truncate overflow-hidden max-w-[60px]" style={{ color: 'var(--foreground)' }}>{user.email || 'User'}</span>
                 <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
                   <button
-                    className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition cursor-pointer"
+                    className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition flex items-center justify-center cursor-pointer"
                     style={{ color: 'var(--foreground)' }}
                     onClick={onLogout}
                     title="Logout"
                   >
                     <LogOut className="w-5 h-5" />
                   </button>
-                  <button className="p-2 rounded-full shadow-sm transition cursor-pointer" style={{ background: 'var(--button-bg)', color: 'var(--button-fg)' }} onClick={() => setIsSettingsOpen(true)}>
+                  <button className="p-2 rounded-full hover:bg-[var(--button-hover-bg)] transition flex items-center justify-center cursor-pointer" onClick={() => setIsSettingsOpen(true)}>
                     <Settings className="w-5 h-5" strokeWidth={2} />
                   </button>
                 </div>

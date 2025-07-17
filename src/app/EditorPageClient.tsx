@@ -11,7 +11,7 @@ import { databaseService, type Page, type Folder } from "@/services/database";
 import { checkDatabaseSetup } from "@/utils/databaseCheck";
 import AuthPanel from "@/components/AuthPanel";
 import SettingsModal from "@/components/SettingsModal";
-import QuickSearchOverlay from '@/components/QuickSearchOverlay';
+import QuickSearchOverlay, { addRecentPage } from '@/components/QuickSearchOverlay';
 
 const Tiptap = dynamic(() => import("@/components/Editor"), { ssr: false });
 
@@ -142,22 +142,22 @@ export default function EditorPageClient() {
     if (currentPageId && pages.some(p => p.id === currentPageId)) return;
     // If intendedNav is set, use it
     if (intendedNav) {
-      if (intendedNav.type === 'home') {
+    if (intendedNav.type === 'home') {
+      setIsHomeSelected(true);
+      setCurrentPageId('');
+      setInitializing(false);
+    } else if (intendedNav.type === 'page') {
+      if (pages.some(p => p.id === intendedNav.id)) {
+        setCurrentPageId(intendedNav.id);
+        setIsHomeSelected(false);
+        setInitializing(false);
+      } else {
+        // Fallback: open home if page not found
         setIsHomeSelected(true);
         setCurrentPageId('');
         setInitializing(false);
-      } else if (intendedNav.type === 'page') {
-        if (pages.some(p => p.id === intendedNav.id)) {
-          setCurrentPageId(intendedNav.id);
-          setIsHomeSelected(false);
-          setInitializing(false);
-        } else {
-          // Fallback: open home if page not found
-          setIsHomeSelected(true);
-          setCurrentPageId('');
-          setInitializing(false);
-        }
       }
+    }
     } else if (!currentPageId && pages.length > 0) {
       // If no current page, default to first page
       setCurrentPageId(pages[0].id);
@@ -242,6 +242,7 @@ export default function EditorPageClient() {
     setCurrentPageId(id);
     setIsHomeSelected(false);
     persistSessionNav({ type: 'page', id });
+    addRecentPage(id); // Add to recent pages
   };
 
   const handleSelectHome = async () => {
@@ -535,6 +536,8 @@ export default function EditorPageClient() {
               user={user}
               onShowAuth={() => setShowAuth(true)}
               timeFormat={timeFormat}
+              onOpenQuickSearch={() => setQuickSearchOpen(true)}
+              quickSearchOpen={quickSearchOpen}
             />
           ) : (
             <div className="h-full flex flex-col relative group/editor-area">

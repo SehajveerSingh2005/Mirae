@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import CalendarWidget from "./widgets/CalendarWidget";
 import ClockWidget from "./widgets/ClockWidget";
 import UniversalSearchBar from "./UniversalSearchBar";
@@ -14,12 +14,27 @@ const getGreeting = () => {
   return "Good evening!";
 };
 
-const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth, timeFormat }: { onNewPage: () => void, onOpenPage: (id: string) => void, pages: Array<{ id: string, title: string, content: string }>, user: any, onShowAuth: () => void, timeFormat: '12h' | '24h' }) => {
-  const [search, setSearch] = useState("");
-  const filteredPages = search.trim()
-    ? pages.filter(p => (p.title || "Untitled Page").toLowerCase().includes(search.toLowerCase()))
-    : pages;
-  const showEmpty = pages.length === 0;
+// Helper to get/set recent pages in localStorage (copy from QuickSearchOverlay)
+type PageType = { id: string; title: string; content: string };
+function getRecentPages(pages: PageType[]): PageType[] {
+  if (typeof window === 'undefined') return [];
+  const ids: string[] = JSON.parse(localStorage.getItem('mirae-recent-pages') || '[]');
+  return ids
+    .map((id: string) => pages.find((p: PageType) => p.id === id))
+    .filter(Boolean) as PageType[];
+}
+
+const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth, timeFormat, onOpenQuickSearch, quickSearchOpen }: {
+  onNewPage: () => void,
+  onOpenPage: (id: string) => void,
+  pages: Array<{ id: string, title: string, content: string }>,
+  user: any,
+  onShowAuth: () => void,
+  timeFormat: '12h' | '24h',
+  onOpenQuickSearch?: () => void,
+  quickSearchOpen?: boolean
+}) => {
+  const searchBarRef = useRef<HTMLInputElement>(null);
   return (
     <div className="min-h-full w-full flex flex-col">
       {/* Top Bar: Logo and New Page only */}
@@ -55,7 +70,9 @@ const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth, timeFormat }: { 
               Login / Signup
             </button>
           )}
-          <UniversalSearchBar search={search} setSearch={setSearch} user={user} />
+          {!quickSearchOpen && (
+            <UniversalSearchBar ref={searchBarRef} search="" setSearch={() => {}} user={user} onTrigger={onOpenQuickSearch} shouldBlurOnTrigger={true} />
+          )}
         </div>
         {/* Dashboard Widgets Grid */}
         <div className="w-full max-w-4xl mx-auto mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -65,8 +82,8 @@ const Home = ({ onNewPage, onOpenPage, pages, user, onShowAuth, timeFormat }: { 
         {/* Recent Activity or Empty State */}
         {user && (
           <RecentActivity
-            showEmpty={showEmpty}
-            filteredPages={filteredPages}
+            showEmpty={pages.length === 0}
+            filteredPages={getRecentPages(pages)}
             onNewPage={async () => await onNewPage()}
             onOpenPage={async (id) => await onOpenPage(id)}
           />

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import UniversalSearchBar from './UniversalSearchBar';
-import { Dialog } from '@headlessui/react';
+import { Dialog, DialogPanel, DialogTitle, Transition } from '@headlessui/react';
 import { FileText, Folder as FolderIcon, Home as HomeIcon, X } from 'lucide-react';
 import Fuse from 'fuse.js';
 
@@ -42,15 +42,16 @@ function addRecentPage(id: string) {
   ids = [id, ...ids.filter((x: string) => x !== id)].slice(0, 10);
   localStorage.setItem('mirae-recent-pages', JSON.stringify(ids));
 }
+export { addRecentPage };
 
 const QuickSearchOverlay: React.FC<QuickSearchOverlayProps> = ({ open, onClose, pages, folders, user, onSelectPage, onSelectHome, theme }) => {
   const [search, setSearch] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const searchBarRef = useRef<any>(null);
 
   useEffect(() => {
     if (open) {
       setTimeout(() => {
-        inputRef.current?.focus();
+        searchBarRef.current?.focus();
       }, 100);
     } else {
       setSearch('');
@@ -65,7 +66,7 @@ const QuickSearchOverlay: React.FC<QuickSearchOverlayProps> = ({ open, onClose, 
     ],
     threshold: 0.4,
     includeMatches: true,
-    minMatchCharLength: 2,
+    minMatchCharLength: 1, // Allow single-letter search
   });
 
   let filteredPages: Page[] = [];
@@ -166,64 +167,70 @@ const QuickSearchOverlay: React.FC<QuickSearchOverlayProps> = ({ open, onClose, 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} className="fixed z-[100] inset-0 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-[4px] transition-all duration-200" />
-      <Dialog.Panel
-        className="relative w-full max-w-lg mx-auto rounded-xl border border-[var(--border)] bg-[var(--dropdown-bg)] p-0 flex flex-col"
-        style={{
-          color: 'var(--foreground)',
-          boxShadow: 'none',
-          backdropFilter: 'blur(24px)'
-        }}
-      >
-        {/* Removed close icon */}
-        <div className="p-4 pb-1">
-          <UniversalSearchBar
-            search={search}
-            setSearch={setSearch}
-            user={user}
-          />
-          {/* Hidden input for focus control */}
-          <input ref={inputRef} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} tabIndex={-1} />
+    <Transition show={open} as={React.Fragment}>
+      <Dialog as="div" className="fixed z-[100] inset-0 flex items-center justify-center" onClose={onClose}>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-[4px] transition-all duration-200" aria-hidden="true" />
+        <div className="flex items-center justify-center min-h-screen w-full">
+          <DialogPanel
+            className="relative w-full max-w-lg mx-auto rounded-xl border border-[var(--border)] bg-[var(--dropdown-bg)] p-0 flex flex-col"
+            style={{
+              color: 'var(--foreground)',
+              boxShadow: 'none',
+              backdropFilter: 'blur(24px)'
+            }}
+          >
+            {/* Removed close icon */}
+            <div className="p-4 pb-1">
+              <UniversalSearchBar
+                ref={searchBarRef}
+                search={search}
+                setSearch={setSearch}
+                user={user}
+                shouldBlurOnTrigger={false}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
+            {results.length === 0 ? (
+              <div className="text-center text-[var(--muted)] py-6 text-sm">No results found.</div>
+            ) : (
+              <ul className="mx-4">
+                {results.map((item, idx) => (
+                  <li key={item.type + (item.id || '') + (item.sublabel || '')} className="my-1">
+                    <button
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition font-medium text-base text-left ${focusIdx === idx ? 'bg-[var(--button-bg)] text-white' : 'hover:bg-[var(--button-hover-bg)]'} minimal-search-result`}
+                      style={{ outline: 'none', fontSize: '1rem', fontWeight: 500, marginLeft: 0, marginRight: 0 }}
+                      onClick={() => {
+                        if (item.type === 'home') onSelectHome();
+                        else if ((item.type === 'page' || item.type === 'content' || item.type === 'recent') && item.id) {
+                          onSelectPage(item.id);
+                          addRecentPage(item.id);
+                        }
+                        else if (item.type === 'folder' && item.id) {
+                          const firstPage = pages.find(p => p.folder_id === item.id);
+                          if (firstPage) {
+                            onSelectPage(firstPage.id);
+                            addRecentPage(firstPage.id);
+                          }
+                        }
+                        onClose();
+                      }}
+                      onMouseEnter={() => setFocusIdx(idx)}
+                      tabIndex={0}
+                    >
+                      {item.icon}
+                      <span className="truncate" style={{ fontSize: '0.98em', fontWeight: 500 }}>{item.label}</span>
+                      {item.sublabel && (
+                        <span className="ml-2 text-xs text-[var(--muted)] truncate" style={{ fontWeight: 400, fontSize: '0.93em' }}>{item.sublabel}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </DialogPanel>
         </div>
-        {results.length === 0 ? (
-          <div className="text-center text-[var(--muted)] py-6 text-sm">No results found.</div>
-        ) : (
-          <ul>
-            {results.map((item, idx) => (
-              <li key={item.type + (item.id || '') + (item.sublabel || '')}>
-                <button
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition font-medium text-base text-left ${focusIdx === idx ? 'bg-[var(--button-bg)] text-white' : 'hover:bg-[var(--button-hover-bg)]'}`}
-                  style={{ outline: focusIdx === idx ? '2px solid var(--accent)' : 'none', fontSize: '1rem', fontWeight: 500 }}
-                  onClick={() => {
-                    if (item.type === 'home') onSelectHome();
-                    else if ((item.type === 'page' || item.type === 'content' || item.type === 'recent') && item.id) {
-                      onSelectPage(item.id);
-                      addRecentPage(item.id);
-                    }
-                    else if (item.type === 'folder' && item.id) {
-                      const firstPage = pages.find(p => p.folder_id === item.id);
-                      if (firstPage) {
-                        onSelectPage(firstPage.id);
-                        addRecentPage(firstPage.id);
-                      }
-                    }
-                    onClose();
-                  }}
-                  onMouseEnter={() => setFocusIdx(idx)}
-                >
-                  {item.icon}
-                  <span className="truncate" style={{ fontSize: '0.98em', fontWeight: 500 }}>{item.label}</span>
-                  {item.sublabel && (
-                    <span className="ml-2 text-xs text-[var(--muted)] truncate" style={{ fontWeight: 400, fontSize: '0.93em' }}>{item.sublabel}</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Dialog.Panel>
-    </Dialog>
+      </Dialog>
+    </Transition>
   );
 };
 
