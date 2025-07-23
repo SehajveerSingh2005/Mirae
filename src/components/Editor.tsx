@@ -18,6 +18,11 @@ import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import ImageDialog from './ImageDialog';
+import ExportDialog from './ExportDialog';
+import TurndownService from 'turndown';
+import pdfMake from 'pdfmake/build/pdfmake';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
+import htmlToPdfmake from 'html-to-pdfmake';
 
 function getProseFontSizeClass(fontSize?: number) {
   if (!fontSize) return 'prose-base';
@@ -58,6 +63,10 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const titleDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'markdown' | 'txt' | 'pdf' | 'docx'>('markdown');
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const pdfPreviewRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -493,6 +502,13 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
     };
   }, []);
 
+  const turndownService = new TurndownService();
+  // Fix for ES module/CommonJS import differences
+  const vfs = (pdfFonts as any).pdfMake?.vfs || (pdfFonts as any).default?.pdfMake?.vfs;
+  if (vfs) {
+    pdfMake.vfs = vfs;
+  }
+
   return (
     <div className="h-full flex flex-col transition-all glass-editor group/editor-area"
       style={{ background: 'var(--editor-bg)', color: 'var(--foreground)', backdropFilter: 'var(--glass-blur)' }}>
@@ -576,6 +592,7 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
                   <button
                     className={`group flex w-full items-center px-4 py-2 text-sm rounded-xl transition ${focus ? 'menu-item-focus' : ''}`}
                     style={{ color: 'var(--foreground)' }}
+                    onClick={() => setExportDialogOpen(true)}
                   >
                     <Download className="mr-3 w-4 h-4" strokeWidth={2} /> Export
                   </button>
@@ -620,6 +637,88 @@ const Tiptap = ({ onWordCountChange, page, onTitleChange, onSave, onDeletePage, 
           open={showImageDialog}
           onClose={() => { setShowImageDialog(false); setPendingImageInsert(null); }}
           onInsert={handleImageInsert}
+        />
+        <ExportDialog
+          open={exportDialogOpen}
+          onClose={() => setExportDialogOpen(false)}
+          format={exportFormat}
+          setFormat={setExportFormat}
+          onExport={async () => {
+            if (!editor) return;
+            let data = '';
+            let ext: string = exportFormat;
+            let mime = 'text/plain';
+            const html = editor.getHTML();
+            const text = editor.getText();
+            if (exportFormat === 'markdown') {
+              data = turndownService.turndown(html);
+              ext = 'md';
+              mime = 'text/markdown';
+            } else if (exportFormat === 'txt') {
+              data = text;
+              ext = 'txt';
+              mime = 'text/plain';
+            } else if (exportFormat === 'pdf') {
+              setPdfExporting(true);
+              setTimeout(() => {
+                // Create a hidden div for rendering
+                const container = document.createElement('div');
+                container.style.position = 'fixed';
+                container.style.left = '-9999px';
+                container.style.top = '0';
+                container.style.width = '800px';
+                container.style.background = '#fff';
+                container.style.color = '#222';
+                container.style.padding = '40px';
+                container.style.fontFamily = 'Inter, Arial, sans-serif';
+                container.style.fontSize = '16px';
+                container.innerHTML = html;
+                document.body.appendChild(container);
+
+                // Convert HTML to pdfmake document definition
+                const pdfContent = htmlToPdfmake(container.innerHTML);
+                const docDefinition = {
+                  content: [
+                    {
+                      text: title || 'Untitled',
+                      fontSize: 24,
+                      bold: true,
+                      marginBottom: 20
+                    },
+                    ...Array.isArray(pdfContent) ? pdfContent : [pdfContent]
+                  ],
+                  pageMargins: [40, 40, 40, 40],
+                  defaultStyle: {
+                    fontSize: 12,
+                    color: '#222',
+                  },
+                };
+                const filename = (title?.trim() ? title.trim().replace(/[^a-zA-Z0-9-_]/g, '_') : 'untitled') + '.pdf';
+                pdfMake.createPdf(docDefinition).download(filename);
+                document.body.removeChild(container);
+                setPdfExporting(false);
+                setExportDialogOpen(false);
+              }, 100);
+              return;
+            } else {
+              // DOCX: not implemented yet
+              setExportDialogOpen(false);
+              return;
+            }
+            const filename = (title?.trim() ? title.trim().replace(/[^a-zA-Z0-9-_]/g, '_') : 'untitled') + '.' + ext;
+            const blob = new Blob([data], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }, 100);
+            setExportDialogOpen(false);
+          }}
         />
 
         {/* Floating Formatting Toolbar */}

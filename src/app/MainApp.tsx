@@ -1,5 +1,10 @@
 import EditorPageClient from "./EditorPageClient";
+import { KeyboardShortcutsProvider } from "@/contexts/KeyboardShortcutsContext";
 
 export default function MainApp() {
-  return <EditorPageClient />;
+  return (
+    <KeyboardShortcutsProvider>
+      <EditorPageClient />
+    </KeyboardShortcutsProvider>
+  );
 } 

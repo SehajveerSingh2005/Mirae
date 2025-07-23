@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 // import StatusBar from "@/components/StatusBar";
 import { v4 as uuidv4 } from 'uuid';
@@ -12,8 +12,16 @@ import { checkDatabaseSetup } from "@/utils/databaseCheck";
 import AuthPanel from "@/components/AuthPanel";
 import SettingsModal from "@/components/SettingsModal";
 import QuickSearchOverlay, { addRecentPage } from '@/components/QuickSearchOverlay';
+import { KeyboardShortcutsProvider, useKeyboardShortcuts } from "@/contexts/KeyboardShortcutsContext";
 
-const Tiptap = dynamic(() => import("@/components/Editor"), { ssr: false });
+const Tiptap = dynamic(() => import("@/components/Editor"), { 
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
+    </div>
+  )
+});
 
 // Types are now imported from database service
 
@@ -193,19 +201,6 @@ export default function EditorPageClient() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [editorDirty]);
-
-  // Global Ctrl+K handler
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setQuickSearchOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
 
   // Helper to delete untitled/empty page
   const maybeDeleteUntitledEmptyPage = async () => {
@@ -458,6 +453,61 @@ export default function EditorPageClient() {
   };
 
   const currentPage = pages.find(p => p.id === currentPageId);
+
+  const shortcutsContext = useKeyboardShortcuts();
+  if (!shortcutsContext) throw new Error("KeyboardShortcutsProvider is missing!");
+  const { setHandler } = shortcutsContext;
+
+  // Create refs for all shortcut handlers
+  const handleNewPageRef = useRef(handleNewPage);
+  const handleSelectHomeRef = useRef(handleSelectHome);
+  const handleOpenSearchRef = useRef(() => setQuickSearchOpen(true));
+  const handleOpenSettingsRef = useRef(() => setIsSettingsOpen(true));
+  const handleDeletePageRef = useRef(() => { if (currentPageId) handleDeletePage(currentPageId); });
+  const handleNextPageRef = useRef(() => {
+    if (!pages.length) return;
+    const idx = pages.findIndex(p => p.id === currentPageId);
+    const nextIdx = (idx + 1) % pages.length;
+    if (pages[nextIdx]) handleSelectPage(pages[nextIdx].id);
+  });
+  const handlePrevPageRef = useRef(() => {
+    if (!pages.length) return;
+    const idx = pages.findIndex(p => p.id === currentPageId);
+    const prevIdx = (idx - 1 + pages.length) % pages.length;
+    if (pages[prevIdx]) handleSelectPage(pages[prevIdx].id);
+  });
+
+  // Keep refs up to date
+  useEffect(() => { handleNewPageRef.current = handleNewPage; }, [handleNewPage]);
+  useEffect(() => { handleSelectHomeRef.current = handleSelectHome; }, [handleSelectHome]);
+  useEffect(() => { handleOpenSearchRef.current = () => setQuickSearchOpen(true); }, [setQuickSearchOpen]);
+  useEffect(() => { handleOpenSettingsRef.current = () => setIsSettingsOpen(true); }, [setIsSettingsOpen]);
+  useEffect(() => { handleDeletePageRef.current = () => { if (currentPageId) handleDeletePage(currentPageId); }; }, [currentPageId, handleDeletePage]);
+  useEffect(() => { handleNextPageRef.current = () => {
+    if (!pages.length) return;
+    const idx = pages.findIndex(p => p.id === currentPageId);
+    const nextIdx = (idx + 1) % pages.length;
+    if (pages[nextIdx]) handleSelectPage(pages[nextIdx].id);
+  }; }, [pages, currentPageId, handleSelectPage]);
+  useEffect(() => { handlePrevPageRef.current = () => {
+    if (!pages.length) return;
+    const idx = pages.findIndex(p => p.id === currentPageId);
+    const prevIdx = (idx - 1 + pages.length) % pages.length;
+    if (pages[prevIdx]) handleSelectPage(pages[prevIdx].id);
+  }; }, [pages, currentPageId, handleSelectPage]);
+
+  // Register shortcut handlers (only once)
+  useEffect(() => {
+    if (!setHandler) return;
+    setHandler("newPage", () => handleNewPageRef.current());
+    setHandler("goHome", () => handleSelectHomeRef.current());
+    setHandler("openSearch", () => handleOpenSearchRef.current());
+    setHandler("openSettings", () => handleOpenSettingsRef.current());
+    setHandler("deletePage", () => handleDeletePageRef.current());
+    setHandler("nextPage", () => handleNextPageRef.current());
+    setHandler("prevPage", () => handlePrevPageRef.current());
+    // eslint-disable-next-line
+  }, [setHandler]);
 
   if (!mounted || authLoading || initializing) {
     // Show a full-page loading spinner (glassmorphic)
