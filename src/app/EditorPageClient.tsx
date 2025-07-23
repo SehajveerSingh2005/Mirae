@@ -509,8 +509,26 @@ export default function EditorPageClient() {
     // eslint-disable-next-line
   }, [setHandler]);
 
-  if (!mounted || authLoading || initializing) {
-    // Show a full-page loading spinner (glassmorphic)
+  if (!mounted) {
+    return null;
+  }
+
+  // Show loading only when auth is loading
+  if (authLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[6px] z-50">
+        <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return <AuthPanel open={true} onClose={() => {}} theme="glass" />;
+  }
+
+  // Show loading when initializing data after auth
+  if (initializing) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[6px] z-50">
         <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
