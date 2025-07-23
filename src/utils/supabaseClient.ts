@@ -11,17 +11,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 //   console.error('Please create a .env.local file with your Supabase credentials');
 // }
 
-const getURL = () => {
-  let url = process?.env?.NEXT_PUBLIC_SITE_URL ?? // Set this in your Vercel project
-    process?.env?.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel
-    'http://localhost:3000/';
-  // Make sure to include `https://` when not localhost.
-  url = url.includes('http') ? url : `https://${url}`;
-  // Make sure to include trailing `/`
-  url = url.charAt(url.length - 1) === '/' ? url : `${url}/`;
-  return url;
-};
-
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-key',
@@ -30,12 +19,8 @@ export const supabase = createClient(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      flowType: 'pkce'
-    },
-    global: {
-      headers: {
-        'x-initial-location': getURL()
-      }
+      flowType: 'pkce',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined
     }
   }
 );
