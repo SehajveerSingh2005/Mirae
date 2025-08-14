@@ -100,19 +100,37 @@ export default function EditorPageClient() {
 
   // Load data when user is authenticated
   useEffect(() => {
+    console.log('🔄 EditorPageClient useEffect triggered:', { user: !!user, authLoading, loading });
+    
     if (user && !authLoading) {
+      console.log('✅ User authenticated, starting data load for:', user.id);
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        if (loading) {
+          console.warn('⚠️ Loading timeout reached. Forcing loading state to false.');
+          setLoading(false);
+          alert('Loading is taking longer than expected. Please refresh the page.');
+        }
+      }, 15000); // 15 second timeout
+      
       loadUserData();
+      
+      return () => clearTimeout(timeoutId);
     } else if (!user && !authLoading) {
+      console.log('❌ No user, clearing data');
       // Clear data when user is not authenticated
       setPages([]);
       setFolders([]);
       setCurrentPageId('');
       setIsHomeSelected(true);
+    } else {
+      console.log('⏳ Waiting for auth state to resolve:', { user: !!user, authLoading });
     }
   }, [user, authLoading]);
 
   // On mount, determine intended navigation (before data loads)
   useEffect(() => {
+    console.log('🚀 Component mounting...');
     setMounted(true);
     const stored = localStorage.getItem('mirae-theme');
     if (stored) setTheme(stored as 'light' | 'dark' | 'glass');
@@ -139,40 +157,80 @@ export default function EditorPageClient() {
         else setIntendedNav({ type: 'home' });
       }
     }
+    console.log('🚀 Mount complete, initializing state:', true);
   }, []);
 
   // After user/pages load, resolve navigation
   useEffect(() => {
-    if (!user || authLoading || !mounted) return;
-    if (pages.length === 0) return; // Wait for pages to load
-    if (creatingPage) return; // Prevent flicker: don't run nav effect while creating a page
+    console.log('🔄 Navigation effect triggered:', { user: !!user, authLoading, mounted, pagesLength: pages.length, creatingPage, currentPageId, intendedNav });
+    
+    if (!user || authLoading || !mounted) {
+      console.log('⏳ Navigation effect waiting for:', { user: !!user, authLoading, mounted });
+      return;
+    }
+    if (pages.length === 0) {
+      console.log('⏳ Navigation effect waiting for pages to load');
+      return;
+    }
+    if (creatingPage) {
+      console.log('⏳ Navigation effect waiting for page creation to complete');
+      return;
+    }
+    
     // If currentPageId is set and exists in pages, do nothing
-    if (currentPageId && pages.some(p => p.id === currentPageId)) return;
+    if (currentPageId && pages.some(p => p.id === currentPageId)) {
+      console.log('✅ Current page already set, no navigation needed');
+      setInitializing(false); // Ensure initializing is set to false
+      return;
+    }
+    
     // If intendedNav is set, use it
     if (intendedNav) {
-    if (intendedNav.type === 'home') {
-      setIsHomeSelected(true);
-      setCurrentPageId('');
-      setInitializing(false);
-    } else if (intendedNav.type === 'page') {
-      if (pages.some(p => p.id === intendedNav.id)) {
-        setCurrentPageId(intendedNav.id);
-        setIsHomeSelected(false);
-        setInitializing(false);
-      } else {
-        // Fallback: open home if page not found
+      console.log('🎯 Using intended navigation:', intendedNav);
+      if (intendedNav.type === 'home') {
         setIsHomeSelected(true);
         setCurrentPageId('');
         setInitializing(false);
+        console.log('✅ Navigated to home, initializing set to false');
+      } else if (intendedNav.type === 'page') {
+        if (pages.some(p => p.id === intendedNav.id)) {
+          setCurrentPageId(intendedNav.id);
+          setIsHomeSelected(false);
+          setInitializing(false);
+          console.log('✅ Navigated to intended page, initializing set to false');
+        } else {
+          // Fallback: open home if page not found
+          setIsHomeSelected(true);
+          setCurrentPageId('');
+          setInitializing(false);
+          console.log('⚠️ Intended page not found, falling back to home, initializing set to false');
+        }
       }
-    }
     } else if (!currentPageId && pages.length > 0) {
       // If no current page, default to first page
       setCurrentPageId(pages[0].id);
       setIsHomeSelected(false);
       setInitializing(false);
+      console.log('✅ Defaulted to first page, initializing set to false');
     }
   }, [user, authLoading, mounted, intendedNav, pages, creatingPage, currentPageId]);
+
+  // Fallback: ensure initializing is set to false after a reasonable timeout
+  useEffect(() => {
+    if (user && !authLoading && initializing) {
+      const fallbackTimeout = setTimeout(() => {
+        if (initializing) {
+          console.warn('⚠️ Fallback timeout: forcing initializing to false');
+          setInitializing(false);
+          // Default to home if we're still stuck
+          setIsHomeSelected(true);
+          setCurrentPageId('');
+        }
+      }, 10000); // 10 second fallback
+      
+      return () => clearTimeout(fallbackTimeout);
+    }
+  }, [user, authLoading, initializing]);
 
   // Persist last opened page on navigation
   useEffect(() => {
@@ -396,20 +454,29 @@ export default function EditorPageClient() {
 
   // Restore loadUserData
   const loadUserData = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('❌ loadUserData called but no user');
+      return;
+    }
+    console.log('🔄 Loading user data for:', user.id);
     setLoading(true);
     try {
+      console.log('📡 Making database calls...');
       const [pagesData, foldersData] = await Promise.all([
         databaseService.getPages(user.id),
         databaseService.getFolders(user.id)
       ]);
+      console.log('✅ User data loaded successfully:', { pages: pagesData.length, folders: foldersData.length });
       setPages(pagesData);
       setFolders(foldersData);
       // Do not set currentPageId or isHomeSelected here. Navigation will be handled by the intendedNav effect.
     } catch (error) {
-      // error handling
+      console.error('❌ Error loading user data:', error);
+      // Show user-friendly error message
+      alert('Failed to load your data. Please refresh the page or contact support if the issue persists.');
     } finally {
       setLoading(false);
+      console.log('🔄 Loading state set to false');
     }
   };
 
@@ -510,11 +577,13 @@ export default function EditorPageClient() {
   }, [setHandler]);
 
   if (!mounted) {
+    console.log('⏳ Component not mounted yet');
     return null;
   }
 
   // Show loading only when auth is loading
   if (authLoading) {
+    console.log('⏳ Auth is loading, showing loading spinner');
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[6px] z-50">
         <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
@@ -524,17 +593,21 @@ export default function EditorPageClient() {
 
   // Show login screen if not authenticated
   if (!user) {
+    console.log('❌ No user authenticated, showing auth panel');
     return <AuthPanel open={true} onClose={() => {}} theme="glass" />;
   }
 
   // Show loading when initializing data after auth
   if (initializing) {
+    console.log('⏳ Initializing data, showing loading spinner');
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[6px] z-50">
         <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
+
+  console.log('✅ Rendering main app with user:', user.id);
 
   return (
     <div className="flex w-screen h-screen min-w-0 min-h-0 overflow-hidden">

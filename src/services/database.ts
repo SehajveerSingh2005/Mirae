@@ -51,6 +51,7 @@ export interface UserSettings {
 class DatabaseService {
   // Pages
   async getPages(userId: string): Promise<Page[]> {
+    console.log('🔍 Fetching pages for user:', userId);
     const { data, error } = await supabase
       .from('pages')
       .select('*')
@@ -58,9 +59,11 @@ class DatabaseService {
       .order('updated_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching pages:', error);
+      console.error('❌ Error fetching pages:', error);
+      console.error('❌ Error details:', { code: error.code, message: error.message, details: error.details });
       throw new Error(`Failed to fetch pages: ${error.message}`);
     }
+    console.log('✅ Pages fetched successfully:', data?.length || 0);
     return data || [];
   }
 
@@ -142,6 +145,7 @@ class DatabaseService {
 
   // Folders
   async getFolders(userId: string): Promise<Folder[]> {
+    console.log('🔍 Fetching folders for user:', userId);
     const { data, error } = await supabase
       .from('folders')
       .select('*')
@@ -149,9 +153,11 @@ class DatabaseService {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Error fetching folders:', error);
+      console.error('❌ Error fetching folders:', error);
+      console.error('❌ Error details:', { code: error.code, message: error.message, details: error.details });
       throw new Error(`Failed to fetch folders: ${error.message}`);
     }
+    console.log('✅ Folders fetched successfully:', data?.length || 0);
     return data || [];
   }
 

@@ -41,6 +41,9 @@ export async function checkDatabaseSetup() {
       console.error('❌ Database error:', pagesError.message);
       if (pagesError.message.includes('relation "pages" does not exist')) {
         console.error('❌ The "pages" table does not exist. Please run the SQL from DATABASE_SETUP.md');
+        console.error('❌ This is likely why new users are stuck on loading!');
+      } else if (pagesError.message.includes('permission denied')) {
+        console.error('❌ Permission denied. Check RLS policies and user authentication.');
       }
       return false;
     } else {
@@ -58,6 +61,9 @@ export async function checkDatabaseSetup() {
       console.error('❌ Folders table error:', foldersError.message);
       if (foldersError.message.includes('relation "folders" does not exist')) {
         console.error('❌ The "folders" table does not exist. Please run the SQL from DATABASE_SETUP.md');
+        console.error('❌ This is likely why new users are stuck on loading!');
+      } else if (foldersError.message.includes('permission denied')) {
+        console.error('❌ Permission denied. Check RLS policies and user authentication.');
       }
       return false;
     } else {
