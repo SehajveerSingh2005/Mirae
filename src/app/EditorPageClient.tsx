@@ -100,16 +100,20 @@ export default function EditorPageClient() {
 
   // Load data when user is authenticated
   useEffect(() => {
-    console.log('🔄 EditorPageClient useEffect triggered:', { user: !!user, authLoading, loading });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 EditorPageClient useEffect triggered:', { user: !!user, authLoading, loading });
+    }
     
     if (user && !authLoading) {
-      console.log('✅ User authenticated, starting data load for:', user.id);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ User authenticated, starting data load for:', user.id);
+      }
       // Add timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
         if (loading) {
           console.warn('⚠️ Loading timeout reached. Forcing loading state to false.');
           setLoading(false);
-          alert('Loading is taking longer than expected. Please refresh the page.');
+          // Removed alert popup - handle timeout silently
         }
       }, 15000); // 15 second timeout
       
@@ -134,7 +138,7 @@ export default function EditorPageClient() {
     setMounted(true);
     const stored = localStorage.getItem('mirae-theme');
     if (stored) setTheme(stored as 'light' | 'dark' | 'glass');
-    checkDatabaseSetup();
+    // checkDatabaseSetup(); // Removed to speed up loading
     if (typeof window !== 'undefined') {
       const startup = localStorage.getItem('mirae-startup-position') as 'last' | 'home' || 'last';
       setStartupPosition(startup);
@@ -212,6 +216,12 @@ export default function EditorPageClient() {
       setIsHomeSelected(false);
       setInitializing(false);
       console.log('✅ Defaulted to first page, initializing set to false');
+    } else if (!currentPageId && pages.length === 0) {
+      // If no pages at all, go to home immediately
+      setIsHomeSelected(true);
+      setCurrentPageId('');
+      setInitializing(false);
+      console.log('✅ No pages found, defaulting to home, initializing set to false');
     }
   }, [user, authLoading, mounted, intendedNav, pages, creatingPage, currentPageId]);
 
@@ -226,7 +236,7 @@ export default function EditorPageClient() {
           setIsHomeSelected(true);
           setCurrentPageId('');
         }
-      }, 10000); // 10 second fallback
+      }, 5000); // 5 second fallback
       
       return () => clearTimeout(fallbackTimeout);
     }

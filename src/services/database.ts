@@ -54,9 +54,10 @@ class DatabaseService {
     console.log('🔍 Fetching pages for user:', userId);
     const { data, error } = await supabase
       .from('pages')
-      .select('*')
+      .select('id,title,content,user_id,folder_id,created_at,updated_at,is_favorite')
       .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .limit(100); // Limit to 100 most recent pages for faster loading
 
     if (error) {
       console.error('❌ Error fetching pages:', error);
